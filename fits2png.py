@@ -8,7 +8,7 @@ sys.path.append('/lab/software/apparatus3/bin/py')
 import falsecolor
 
 
-def makepng( fitsfile, operation, dpi):
+def makepng( fitsfile, operation, dpi, bg = None, prefix = None):
    shot = fitsfile.split('atoms')[0]
    atoms     = pyfits.open( shot + 'atoms.fits')[0].data[0]
    noatoms   = pyfits.open( shot + 'noatoms.fits')[0].data[0]
@@ -16,14 +16,25 @@ def makepng( fitsfile, operation, dpi):
    noatomsref= pyfits.open( shot + 'noatomsref.fits')[0].data[0]
    
    if operation == 'ABS':
-      out = (atoms - atomsref) / (noatoms - noatomsref)
+      if bg == None:
+        out = (atoms - atomsref) / (noatoms - noatomsref)
+      else:
+        out = (atoms - atomsref) / bg
    elif operation == 'PHC':
-      out = (atoms - atomsref) - (noatoms - noatomsref) 
+      if bg == None:
+        out = (atoms - atomsref) - (noatoms - noatomsref) 
+      else:
+        out = (atoms - atomsref) - bg
    else:
       print " -->  Operation is not ABS or PHC.  Program will exit"
       exit(1) 
-   
-   return falsecolor.savepng( out, out.min(), out.max(), falsecolor.my_rainbow, shot, dpi)
+  
+   if prefix == None: 
+     label = shot
+   else:
+     label = shot + prefix 
+  
+   return falsecolor.savepng( out, out.min(), out.max(), falsecolor.my_rainbow, label, dpi)
 
 if __name__ == "__main__":
    #parameter indeces
