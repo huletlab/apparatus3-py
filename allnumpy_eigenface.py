@@ -4,9 +4,8 @@ import glob
 import pyfits
 import os
 import numpy
-#from numppy import
-#import scipy
-from scipy import linalg, mat
+import scipy
+from scipy import linalg
 
 import sys
 sys.path.append('/home/pmd/py')
@@ -17,7 +16,7 @@ import time
 
 ############## FUNCTIONS ###############
 
-def GetBackgrounds(Nbgs,shot):
+def GetBackgrounds(Nbgs):
   """This function looks in the current directory and gets the last
      Nbgs available backgrounds.  It checks that all backgrounds have
      the same shape.  It returns a list with the backgrounds, a 
@@ -28,16 +27,11 @@ def GetBackgrounds(Nbgs,shot):
   bgshots = []
   shape = None
 
-  pwd = os.getcwd()
-  atoms      = glob.glob( pwd + '/????atoms.fits')[-Nbgs:]
-  
-  thisone = pwd + '/' + shot + 'atoms.fits'
-  if thisone in atoms:
-    atoms.remove( thisone )
-  atoms.append( thisone )
+  atoms      = glob.glob( os.getcwd() + '/????atoms.fits')[-Nbgs:]
   atoms.sort()
   for img in atoms: 
     try:
+      pwd = os.getcwd()
       shot = os.path.basename(img).rsplit('atoms')[0]
       atoms_img = pyfits.open( img )[0].data[0]
       noatoms_img = pyfits.open( pwd + '/' + shot + 'noatoms.fits')[0].data[0]
@@ -57,7 +51,7 @@ def GetBackgrounds(Nbgs,shot):
   return backgrounds, bgshots, shape
 
 
-def Bjk( roi, mask, backgrounds, bgshots ):
+def Bjk( roi, mask, backgrounds ):
   """ This function calculates the entries of the Bjk matrix 
       which is used in the calculation of the coefficients
       that produce the eigenclean background.  The mask must
@@ -67,13 +61,7 @@ def Bjk( roi, mask, backgrounds, bgshots ):
       normalization factor used to keep the entries of the Bjk
       matrix in the range (0,1). 
       The same normalization factor must be used to calculate
-      the entries of Yj,  see below.
-   
-      To improve the performance, any Bjk elements calculated
-      here are stored in a dictionary that is dumped into a 
-      pickle file at the end of this function.  Elementes that
-      have been calculated before can be retrieved from the 
-      dictionary. 
+      the entries of Yj,  see below. 
   """
   start = time.time()
   lb = len(backgrounds)
@@ -88,17 +76,17 @@ def Bjk( roi, mask, backgrounds, bgshots ):
   for j in range( lb ):
     for k in range( lb ):
       try:
-        bjk[j,k] = Bjk_dict[ bgshots[j],bgshots[k] ]
+        bjk[j,k] = Bjk_dict[j,k]
       except:
         bjk[j,k] = numpy.sum(mask * backgrounds[j] * backgrounds[k] )
-        Bjk_dict[bgshots[j],bgshots[k]] = bjk[j,k]
+        Bjk_dict[j,k] = bjk[j,k]
   Bjk_pickle = open(fpck,'wb')
   cPickle.dump( Bjk_dict, Bjk_pickle)
   bjk_max = numpy.max( bjk)
   bjk = bjk / bjk_max
   end = time.time()
   print "Bjk evaluation time = %.2f seconds" % (end - start)
-  return numpy.matrix( bjk ), bjk_max
+  return scipy.mat( bjk ), bjk_max
 
 
 def Yj( mask, backgrounds, image, normfactor):
@@ -116,7 +104,7 @@ def Yj( mask, backgrounds, image, normfactor):
     yj[j] = numpy.sum( mask * backgrounds[j] * image ) / normfactor
   end = time.time()
   print "Yj evaluation time = %.2f seconds" % (end - start)
-  return numpy.matrix( yj ).T
+  return scipy.mat( yj ).T
 
 
 def makemask( shape, roi):
@@ -157,12 +145,9 @@ def NewBackground( coefs, backgrounds):
 
 
 def EigenClean( shot, roi,  Nbgs=40):
-  t0 = time.time()
-  bgs,bgshots,shape = GetBackgrounds(Nbgs,shot)
-  print "GetBackgrounds process time = %.2f seconds" % (time.time()-t0)
-
+  bgs,bgshots,shape = GetBackgrounds(Nbgs)
   mask = makemask( shape, roi)
-  B, normfactor =  Bjk( roi, mask, bgs , bgshots)
+  B, normfactor =  Bjk( roi, mask, bgs )
 
   print "# of backgrounds = %d" % len(bgs)
   print "pixels per background = %s" % str(bgs[0].shape)
@@ -191,9 +176,7 @@ def EigenClean( shot, roi,  Nbgs=40):
   t0 = time.time()
   nb = NewBackground( c, bgs) 
   print "New background evaluation time = %.2f seconds" % (time.time()-t0)
-  t0 = time.time()
   numpy.savetxt( shot + '_eigenclean.ascii' , nb, fmt='%.6e', delimiter='\t')
-  print "New background save to disk time = %.2f seconds" % (time.time()-t0)
 
   #fits2png.makepng( atomsf, 'ABS', 140, prefix = '_noclean')
   #fits2png.makepng( atomsf, 'ABS', 140, bg =nb,  prefix = '_clean')
@@ -201,11 +184,10 @@ def EigenClean( shot, roi,  Nbgs=40):
 ############## USAGE EXAMPLE ###############
 
 if __name__ == "__main__":
- 
+  
   parser = argparse.ArgumentParser('eigenface.py')
   parser.add_argument('SHOT', action="store", type=str, help='shotnumber to clean up with eigenface')
   parser.add_argument('ROI', action="store", type=str, help='X0,Y0,XW,YW region of interest') 
-  parser.add_argument('NBGS', action="store", type=int, help='maximum number of backgrounds to be used') 
   
   args = parser.parse_args()
   X0 = float(args.ROI.split(',')[0])
@@ -216,5 +198,8 @@ if __name__ == "__main__":
 #  print args.SHOT
 #  print X0,Y0,XW,YW
  
-  EigenClean( args.SHOT, [X0,Y0,XW,YW], Nbgs = args.NBGS)
+  EigenClean( args.SHOT, [X0,Y0,XW,YW])
 
+
+
+ 
