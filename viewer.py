@@ -1,4 +1,4 @@
-#!/lab/software/epd-7.0-1-rh5-x86/bin/python
+#!/usr/bin/python
 
 # ----------------------------------------
 # image_viewer2.py

@@ -1,4 +1,4 @@
-#!/lab/software/epd-7.0-1-rh5-x86/bin/python
+#!/usr/bin/python
 import argparse
 import glob
 import pyfits
@@ -14,6 +14,8 @@ import fits2png
 
 import cPickle
 import time
+
+verbose = False
 
 ############## FUNCTIONS ###############
 
@@ -97,7 +99,8 @@ def Bjk( roi, mask, backgrounds, bgshots ):
   bjk_max = numpy.max( bjk)
   bjk = bjk / bjk_max
   end = time.time()
-  print "Bjk evaluation time = %.2f seconds" % (end - start)
+  if ( verbose ):
+    print "Bjk evaluation time = %.2f seconds" % (end - start)
   return numpy.matrix( bjk ), bjk_max
 
 
@@ -115,7 +118,8 @@ def Yj( mask, backgrounds, image, normfactor):
   for j in range( lb ):
     yj[j] = numpy.sum( mask * backgrounds[j] * image ) / normfactor
   end = time.time()
-  print "Yj evaluation time = %.2f seconds" % (end - start)
+  if ( verbose ):
+    print "Yj evaluation time = %.2f seconds" % (end - start)
   return numpy.matrix( yj ).T
 
 
@@ -159,44 +163,50 @@ def NewBackground( coefs, backgrounds):
 def EigenClean( shot, roi,  Nbgs=40):
   t0 = time.time()
   bgs,bgshots,shape = GetBackgrounds(Nbgs,shot)
-  print "GetBackgrounds process time = %.2f seconds" % (time.time()-t0)
+  if ( verbose ):
+    print "GetBackgrounds process time = %.2f seconds" % (time.time()-t0)
 
   mask = makemask( shape, roi)
   B, normfactor =  Bjk( roi, mask, bgs , bgshots)
 
-  print "# of backgrounds = %d" % len(bgs)
-  print "pixels per background = %s" % str(bgs[0].shape)
-  print "mask roi = %s" % str(roi)
-  print "shape of B matrix = %s" % str(B.shape)
+  if ( verbose ):
+    print "# of backgrounds = %d" % len(bgs)
+    print "pixels per background = %s" % str(bgs[0].shape)
+    print "mask roi = %s" % str(roi)
+    print "shape of B matrix = %s" % str(B.shape)
 
   image, atomsf = Ax(shot)
   y = Yj( mask, bgs, image, normfactor)  
 
-  print "shape of y vector = %s" % str(y.shape)
+  if ( verbose ):
+    print "shape of y vector = %s" % str(y.shape)
 
   t0 = time.time()
   c, resid, rank, sigma = linalg.lstsq( B, y)
-  print "Coeffs evaluation time = %.2f seconds" % (time.time()-t0)
-  
+  if ( verbose ):
+    print "Coeffs evaluation time = %.2f seconds" % (time.time()-t0)
+    print "maximum residual = %.3e" % numpy.max(y-B*c)
 
-  print "maximum residual = %.3e" % numpy.max(y-B*c)
-
-  print "\neigenclean background:\n"  
+  if ( verbose ):
+    print "\neigenclean background:\n"  
   for i in range( c.shape[0]  ):
     out =  "% 2.3f * '%s'" % ( c[i], bgshots[i] ) 
     if bgshots[i] == shot :
       out = out + ' <--'
-    print out
+    if ( verbose ):
+      print out
 
   t0 = time.time()
   nb = NewBackground( c, bgs) 
-  print "New background evaluation time = %.2f seconds" % (time.time()-t0)
+  if ( verbose ):
+    print "New background evaluation time = %.2f seconds" % (time.time()-t0)
   t0 = time.time()
   numpy.savetxt( shot + '_eigenclean.ascii' , nb, fmt='%.6e', delimiter='\t')
-  print "New background save to disk time = %.2f seconds" % (time.time()-t0)
+  if ( verbose ):
+    print "New background save to disk time = %.2f seconds" % (time.time()-t0)
 
-  #fits2png.makepng( atomsf, 'ABS', 140, prefix = '_noclean')
-  #fits2png.makepng( atomsf, 'ABS', 140, bg =nb,  prefix = '_clean')
+  fits2png.makepng( atomsf, 'ABS', 140, prefix = '_noclean')
+  fits2png.makepng( atomsf, 'ABS', 140, bg =nb,  prefix = '_clean')
 
 ############## USAGE EXAMPLE ###############
 

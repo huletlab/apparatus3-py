@@ -1,0 +1,17 @@
+#! /bin/sh
+# Modify Makefiles inside the various subdirectories so that the libraries
+# in the installation directory are used for:
+# 	CCfits
+# 	tiff
+# 	gsl
+#
+
+
+files='*.py'
+for i in $files
+do
+	echo $i
+	sed -i 'sK#!#!/usr/bin/pythonK#!/usr/bin/pythonKg' $i
+done
+#sed -i 's!PYTHONINC!'$epddir'!g' Makefile
+

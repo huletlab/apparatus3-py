@@ -1,0 +1,11 @@
+reset 
+set fit errorvariables
+set fit logfile "mylog.fit"
+f = "7328..7334.TOFDAT"
+m = 1.0 # reports now in (um)
+kbm=13.85e-06 * 1e8 #kb/m in um^2/ms^2/uK
+r(x) = x>0?sqrt(r0**2+2*kbm*T*x**2):r0
+r0 = 40
+T  = 9.18
+fit r(x) f u 2:($5*m) via r0,T
+print sprintf("%.3f\t%.3f", T, T_err)

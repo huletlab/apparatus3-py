@@ -1,4 +1,4 @@
-#!/lab/software/epd-7.0-1-rh5-x86/bin/python
+#!/usr/bin/python
 
 import sys
 from numpy import loadtxt
@@ -82,6 +82,7 @@ if __name__ == "__main__":
       color = 'red'
     if 'AzimuthZeroT' in f[1]:
       color = '#35C6CD'
+      alpha = 0.75
       lw = 2.5
     if '2DFermi' in f[1]:
       color = '#FFC000'

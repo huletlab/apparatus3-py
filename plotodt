@@ -1,0 +1,40 @@
+#!/usr/bin/python
+
+import configobj
+import argparse
+import matplotlib
+import matplotlib.pyplot as plt
+import re
+import sys
+import numpy
+sys.path.append('/lab/software/apparatus3/seq/utilspy')
+import evap
+
+fig = plt.figure()
+
+ax = fig.add_subplot(111)
+
+parser = argparse.ArgumentParser('plotodt_seq.py')
+parser.add_argument('shot', nargs='*',action="store", type=int, help='range of shots to be considered for plotevap')
+
+args = parser.parse_args()
+#print os.getcwd()
+#print args.RANGE
+
+#
+# EXTRACT DATA FROM REPORTS 
+# 
+for shot in args.shot:
+    
+    report = configobj.ConfigObj ( "report%04d.INI" % shot )
+    rampfile =  re.sub('L:', '/lab', report['EVAP']['ramp'] )
+    evapramp = numpy.fromfile( rampfile , sep='\n')
+    stepsize = float( report['EVAP']['evapss'] )
+    evaptime = numpy.linspace( 0.0, evapramp.shape[0]*stepsize, evapramp.shape[0] )
+    ax.plot(evaptime,evapramp,label="shot %04d" % shot )
+    ax.set_xlabel("Image(ms)")
+    ax.set_ylabel("ODTpow")
+    #ax.set_xlim(0,max(evaptime))
+
+ax.legend()
+plt.show()
