@@ -31,50 +31,88 @@ def inspecpng( imglist , inspec_row, inspec_col, cmin, cmax, colormap, id, dpi, 
      if img.shape != shape:
        print " --->  ERROR:  falsecolor.inspecpng  cannot handle images of different shapes"
        exit(1)
-   # The first image in the list is used for the false color plot
-   figw = 6.  #fig width in inches
-
-   axw = 0.50  #fraction of fig for axes width
-   axh = 0.60  #fraction of fig for axes width
-    
-   figh = axw*figw  *shape[0] / shape[1] / axh # fig height in inches
-   #axh = axw*figw  *shape[0] / shape[1] / figh #fraction of fig for axes height
-
-   #print axw, axh
-   #h = w/aspect
-   fig = plt.figure(figsize=(figw,figh))
-
-   xstart = 0.1
-   xgap = 0.14
+  
+   #Inspec png accepts float for row and col
+   finspec_row = float(inspec_row)
+   finspec_col = float(inspec_col)
    
-   ystart = 0.1
-   ygap = 0.14
-   
-   xs = 0.4*axw
-   ys = 0.4*axh
+   inspec_row = int(np.floor(float(inspec_row)))
+   inspec_col = int(np.floor(float(inspec_col)))
 
-   ax = fig.add_axes([xstart,ystart, axw, axh],frameon=True)
+   #grid pixels per inch
+   gpxi = 75.
+
+   #size of main axes in inches
+   axw_in = shape[1]/gpxi
+   axh_in = shape[0]/gpxi
+  
+   #scale of fit axes 
+   fits = 0.4
+
+   #scale of plots area
+   plotw_in = axw_in*(1. + fits)
+   ploth_in = axh_in*(1. + fits)
+
+   #size offigure
+   xlabel_border = 0.7 # inches
+   ylabel_border = 0.7 # inches
+   gap = 0.2 # inches 
+   figw_in = xlabel_border + plotw_in + 2*gap
+   figh_in = ylabel_border + ploth_in + 2*gap
+
+   
+   fig = plt.figure(figsize=(figw_in,figh_in))
+
+
+   #
+   ###ax = fig.add_axes([xstart,ystart, axw, axh],frameon=True)
+   xstart = xlabel_border/figw_in
+   ystart = ylabel_border/figh_in
+   xsize  = axw_in/figw_in
+   ysize  = axh_in/figh_in
+   ax = fig.add_axes([xstart, ystart, xsize, ysize],frameon=True)
    im = ax.imshow(imglist[0], cmap=colormap, vmin=cmin,vmax=cmax, origin=origin)
 
+   centertext = 'shot #%s\ncenter at (%.1f, %.1f)' % (id,finspec_col,finspec_row)
+   fig.text(xstart-0.65/figw_in, ystart-0.65/figh_in, centertext)
 
-   axFIT = fig.add_axes( [xgap+axw, ygap+axh, xs, ys], frameon=True)
+   #
+   ###axFIT = fig.add_axes( [xgap+axw, ygap+axh, xs, ys], frameon=True)
+   xstart = (xlabel_border + gap + axw_in)/figw_in 
+   ystart = (ylabel_border + gap + axh_in)/figh_in 
+   xsize  = fits*axw_in/figw_in
+   ysize  = fits*axh_in/figh_in
+   axFIT = fig.add_axes( [ xstart, ystart, xsize, ysize], frameon=True)
    axFIT.imshow( imglist[1], cmap=colormap, vmin=cmin, vmax=cmax, origin=origin)
    axFIT.xaxis.set_ticklabels([])
    axFIT.yaxis.set_ticklabels([])
  
-   alphacross = 0.5
+   alphacross = 0.4
    alphadata = 0.35 
    
-   ax.axhline( inspec_row, linewidth=0.5, color='blue', alpha=alphacross)
-   axROW = fig.add_axes([xstart,ygap+axh, axw, ys], frameon=True)
+   ax.axhline( finspec_row, linewidth=0.8, color='black', alpha=alphacross)
+   #
+   ###axROW = fig.add_axes([xstart,ygap+axh, axw, ys], frameon=True)
+   xstart = xlabel_border/figw_in
+   ystart = (ylabel_border + gap + axh_in)/figh_in 
+   xsize  = axw_in/figw_in
+   ysize  = fits*axh_in/figh_in
+   axROW = fig.add_axes([xstart, ystart, xsize, ysize], frameon=True)
    axROW.set_xlim( 0, len(imglist[0][ inspec_row, :])-1)
    axROW.plot( imglist[0][ inspec_row, :] , color='blue', alpha=alphadata)
    for img in imglist[1:]:
      axROW.plot( img[ inspec_row, :] , color='blue')
    axROW.xaxis.set_ticklabels([]) 
 
-   ax.axvline( inspec_col, linewidth=0.5, color='red', alpha=alphacross)
-   axCOL = fig.add_axes([xgap+axw,ystart, xs , axh], frameon=True)
+   ax.axvline( finspec_col, linewidth=0.8, color='black', alpha=alphacross)
+   #
+   ###axCOL = fig.add_axes([xgap+axw,ystart, xs , axh], frameon=True)
+   xstart = (xlabel_border + gap + axw_in)/figw_in 
+   ystart = ylabel_border/figh_in
+   xsize  = fits*axw_in/figw_in
+   ysize  = axh_in/figh_in
+   axCOL = fig.add_axes([xstart,ystart,xsize,ysize], frameon=True)
+
    xarray = np.arange( len( imglist[0][:, inspec_col]) )
    axCOL.set_ylim( len( imglist[0][ :, inspec_col])-1, 0)
    axCOL.plot( imglist[0][ : , inspec_col], xarray , color='red', alpha=alphadata)
@@ -88,6 +126,9 @@ def inspecpng( imglist , inspec_row, inspec_col, cmin, cmax, colormap, id, dpi, 
    ax.set_xlim ( 0, len(imglist[0][ inspec_row, :])-1 )
    ax.set_ylim ( len(imglist[0][ :, inspec_col])-1, 0)
    
+   labels = ax.get_xticklabels()
+   for label in labels:
+     label.set_rotation(-90)
 
    pngpath = id + '_inspect.png' 
    plt.savefig(pngpath, dpi=dpi)

@@ -28,7 +28,8 @@ keys = ['SEQ:shot', 'ODT:odttof', 'EVAP:image', 'EVAP:finalcpow', \
         'ODTCALIB:maxdepth', 'ODTCALIB:v0radial', 'ODTCALIB:v0axial', \
         'CPP:nfit', 'CPP:peakd', 'CPP:ax0w', 'CPP:ax1w', \
         'CPP:TF', 'CPP:TF_az', 'CPP:T_az', 'CPP:T_2d_rd', \
-        'CPP:T_2d_ax', 'CPP:TF_2d', 'FESHBACH:bias']
+        'CPP:T_2d_ax', 'CPP:TF_2d', 'FESHBACH:bias', \
+        'EVAP:fieldrampfinal']
 
 k={} # This dictionary provides numeric indices to all the keys
 for i,key in enumerate(keys):
@@ -41,49 +42,87 @@ colors = ['black', 'brown', 'red', 'orange', 'green', 'blue', 'magenta', 'gray',
 
 # Points that have error bars larger than this will not be shown
 # value is as fraction of the data point
-maxerror = 0.5
+maxerror = 0.75
 
 #--------------------------------------------------
-#   EXTRACT SAME DEPTHS
+#   EXTRACT SAME 
 #
 #   This looks at all the shots in the range and then
-#   separates them into groups according to the trap
-#   depth. 
+#   separates them into groups according to the given
+#   parameter
 #--------------------------------------------------
-def extract_same_depths( evapdat ):
+def extract_same( evapdat , parameter='EVAP:finalcpow'):
+  print "Extracting Same, with respect to %s" % parameter
   evapdat = evapdat.tolist()
-  depths = []
+  pvalues = []
   extracted = {}
   for row in evapdat:
+     value = row[k[parameter]]
+     # These other values below can be used to 
+     # differentiate shots that are different
+     # but have the same parameter value 
      fcpow = row[k['EVAP:finalcpow']]
      U0    = row[k['ODTCALIB:maxdepth']]
      image = row[k['EVAP:image']]
-     U = fcpow /10. * U0
-     depth = U - 1e-7*image
-     if depth  in depths:
-       l = extracted[depth] 
+     
+     # If the parameter is recognized as a
+     # known one, then a more physics friendly
+     # value can be calculated and used instead
+     if parameter == 'EVAP:finalcpow':
+       U = value /10. * U0
+       depth = U - 1e-7*image
+       value = depth
+     elif parameter == 'FESHBACH:bias':
+       field = 6.8 * value
+       value = field
+     elif parameter == 'EVAP:fieldrampfinal':
+       field = 6.8 * value
+       value = field
+
+     if value  in pvalues:
+       l = extracted[value] 
        l.append ( list(row) )
-       extracted[depth] = l 
+       extracted[value] = l 
      else:
-       depths.append( depth )
-       extracted[ depth ] = [ list(row) ]
+       pvalues.append( value )
+       extracted[ value ] = [ list(row) ]
   return extracted
   
   #pprint.pprint( depths )
   #pprint.pprint( extracted )
 
 #--------------------------------------------------
+#   PARAMETER VALUE FOR PLOTTING
+#
+#   In several plots, the plot parameter value is 
+#   required. This functions returns a numpy array
+#   with the parameter value, which is ready to use
+#   for plotting with matplotlib
+def pvalue( points, parameter ):
+  xArray = points[0,k[parameter]]
+  if parameter == 'EVAP:image':
+    xArray = xArray / 1000.
+  if parameter == 'FESHBACH:bias':
+    xArray = xArray *6.8
+  if parameter == 'EVAP:fieldrampfinal':
+    xArray = xArray *6.8
+  xT = numpy.array( [ xArray ] )
+  return xT
+#--------------------------------------------------
 #   FERMI TEMPERATURE
 #
 #   This gets the Fermi Temperature from the trap
 #   depth and the full depth trap frequencies
-#   Fermi Energy = h vbar (6N)^1/3
+#   Fermi Energy = h vbar (3N)^1/3
+#  
+#   where N is total atom number (i.e. counting
+#   both spin states)
 #
 #   For the number, N, it uses the average of
 #   the shots that are available, which are at
 #   various time-of-flight's. 
 #--------------------------------------------------
-def t_fermi( points, ax_N ):
+def t_fermi( points, ax_N, xT):
   h = 48. # This is h/kb in uK/MHz
   
   v = points[0,[k['EVAP:finalcpow'],k['ODTCALIB:v0radial'],k['ODTCALIB:v0axial'] ]].tolist()
@@ -92,6 +131,7 @@ def t_fermi( points, ax_N ):
   vaxial   = v[2]*math.sqrt( fraction ) * 1e-6 # axial trap freq in MHz 
 
   numbers = points[:,k['CPP:nfit']]
+  numbers = numpy.array ( [ n for j,n in enumerate(numbers) if n>10000. and n<1e8  ] )
   num = unc.ufloat( (numpy.mean( numbers ) , scipy.stats.sem( numbers )) ) / 1e5
  
   densities = points[:,[k['ODT:odttof'],k['CPP:peakd']]]
@@ -102,24 +142,23 @@ def t_fermi( points, ax_N ):
   if len(dens) == 0:
     den = unc.ufloat (( 0.0, 0.0 ) )
   elif len(dens) == 1:
-    den = unc.ufloat( ( dens[0]  , 0.0 ) ) /1e11
+    den = unc.ufloat( ( dens[0]  , 0.0 ) ) /1e12
   else:
     dens = numpy.array( dens )
-    den = unc.ufloat( (numpy.mean( dens ) , scipy.stats.sem( dens )) ) /1e11
+    den = unc.ufloat( (numpy.mean( dens ) , scipy.stats.sem( dens )) ) /1e12
 
   try: 
-    tf = h * ( vradial * vradial * vaxial * 6 * num * 1e5 )**(1./3.)
+    tf = h * ( vradial * vradial * vaxial * 3 * num * 1e5 )**(1./3.)
   except:
     tf = unc.ufloat( ( 0.0001, 0.0 ) ) ;
 
-  #******* NUMBER
-  xT = numpy.array( [points[0,k['EVAP:image']]/1000. ] )
+  #******* PLOT NUMBER AS A FUNCTION OF PARAMETER
   yT = numpy.array( [num.nominal_value] )
   yTerr = numpy.array( [num.std_dev()] )
   if yTerr[0] < maxerror* yT[0]:
       ax_N[0].errorbar(xT, yT, yerr=yTerr, fmt='s', ecolor=colors[i], markeredgecolor=colors[i], markerfacecolor="None", markeredgewidth=2., markersize=8, alpha=1.0)
 
-  #******* DENSITY
+  #******* PLOT DENSITY AS A FUNCTION OF PARAMETER
   yT = numpy.array( [den.nominal_value] )
   yTerr = numpy.array( [den.std_dev()] )
   if yTerr[0] < maxerror* yT[0]:
@@ -135,18 +174,42 @@ def t_fermi( points, ax_N ):
 #   This extracts the temprature from time-of-flight
 #   data.
 #--------------------------------------------------
-def tof_temperature( points, tfermi, number, i, ax_tof, ax_T, ax_TF, axTFN, legend_dict): 
+def tof_temperature( points, tfermi, number, i, ax_tof, ax_T, ax_TF, axTFN, legend_dict, xT): 
+
   shots  = points[:,k['SEQ:shot']] 
-  p0 = [ 50., depth/5.] 
-  fitfun = fitlibrary.fitdict['Temperature'].function
-  
+  fcpow = points[0,k['EVAP:finalcpow']]
+  U0    = points[0,k['ODTCALIB:maxdepth']]
+ 
   tofdat = points[:,k['ODT:odttof']]
   sizdat = points[:,k['CPP:ax0w']]
   
+  mintofindex = tofdat.argmin()
+  s_guess = sizdat[mintofindex]
+  T_guess =fcpow/10. *U0 / 5.
+  print "Fitting TOF Temperature, starting with guess r0 = %.3f, T = %.3f" % (s_guess, T_guess)
+  p0 = [ s_guess, T_guess] 
+  fitfun = fitlibrary.fitdict['Temperature'].function
+
+
+  todelete=[]
+  tofdat_clean =[]
+  sizdat_clean =[]
+  for j,tof in enumerate(tofdat):
+    if sizdat[j] > 400. or sizdat[j] < 0.:
+      todelete.append(j)
+    else:
+      tofdat_clean.append( tofdat[j] )
+      sizdat_clean.append( sizdat[j] ) 
+
+  tofdat = numpy.array(tofdat_clean)
+  sizdat = numpy.array(sizdat_clean)
+
+  fitdat= numpy.transpose(numpy.array( [tofdat.tolist(), sizdat.tolist()] ))
+  
   try: 
-    Tfit, Terror = fitlibrary.fit_function( p0, points[:, [k['ODT:odttof'],k['CPP:ax0w']]], fitfun) 
-    getTcmd = 'getTrange -T %.2f %04d:%04d' % (depth/5., sorted(shots)[0], sorted(shots)[-1] )
-    getT = subprocess.Popen(getTcmd.split(), stdout=subprocess.PIPE).communicate()[0]
+    Tfit, Terror = fitlibrary.fit_function( p0, fitdat, fitfun)
+    #getTcmd = 'getTrange -T %.2f %04d:%04d' % (depth/5., sorted(shots)[0], sorted(shots)[-1] )
+    #getT = subprocess.Popen(getTcmd.split(), stdout=subprocess.PIPE).communicate()[0]
   except:
     Tfit =  [0., 0.]
     Terror = [0., 0.]
@@ -162,7 +225,7 @@ def tof_temperature( points, tfermi, number, i, ax_tof, ax_T, ax_TF, axTFN, lege
   ax_tof.plot( TfitX, TfitY, '-', color=colors[i], markeredgewidth=0.3, markersize=12, alpha=0.5)
 
   #******* T TOF
-  xT = numpy.array( [points[0,k['EVAP:image']]/1000. ] )
+  #xT = numpy.array( [points[0,k['EVAP:image']]/1000. ] )
   yT = numpy.array( [T.nominal_value] )
   yTerr = numpy.array( [T.std_dev()] )
   if yTerr[0] < maxerror* yT[0]:
@@ -204,7 +267,7 @@ def tof_temperature( points, tfermi, number, i, ax_tof, ax_T, ax_TF, axTFN, lege
 #   size estimates of T/TF obtained from the
 #   azimuthally averaged data.
 #--------------------------------------------------
-def t_azimuthal( points , tfermi, number, i, ax_tof, ax_T, ax_TF, axTFN, legend_dict):
+def t_azimuthal( points , tfermi, number, i, ax_tof, ax_T, ax_TF, axTFN, legend_dict, xT):
   TF = numpy.mean(points[:,k['CPP:TF']])
 
   tof = points[:,k['ODT:odttof']]
@@ -226,13 +289,13 @@ def t_azimuthal( points , tfermi, number, i, ax_tof, ax_T, ax_TF, axTFN, legend_
   #print "Iteration = ", i
   #print "Color     = %s" % colors[i] 
   
-  ax_tof.plot( tof, points[:,k['CPP:TF_az']], 'D', markeredgecolor=colors[i], markerfacecolor="None", markeredgewidth=2., markersize=8, alpha=1.0)
-  #ax_tof.plot( tof, points[:,k['CPP:T_az']]/tfermi.nominal_value, 'x', color=colors[i], markeredgewidth=2., markersize=8, alpha=1.0)
+  ax_tof.plot( tof, points[:,k['CPP:TF_az']], 'D', markeredgecolor=colors[i], markerfacecolor="None", markeredgewidth=1.0, markersize=3, alpha=1.0)
+  ax_tof.plot( tof, points[:,k['CPP:T_az']]/tfermi.nominal_value, 'x', markeredgecolor=colors[i], markerfacecolor="None", markeredgewidth=1.0, markersize=3, alpha=1.0)
  
   evapimage = points[0,k['EVAP:image']]/1000.
 
   #******* T FUGACITY
-  xT = numpy.array( [ evapimage ] )
+  #xT = numpy.array( [ evapimage ] )
   T_az_f = TF_az_f * tfermi
   yT = numpy.array( [T_az_f.nominal_value ] )
   yTerr = numpy.array( [T_az_f.std_dev() ] )
@@ -298,7 +361,7 @@ def t_azimuthal( points , tfermi, number, i, ax_tof, ax_T, ax_TF, axTFN, legend_
 #   of T/TF and the axial and radial estimates
 #   of T
 #--------------------------------------------------
-def t_2d( points, tfermi, number, i , ax_tof, ax_T , ax_TF, axTFN, legend_dict):
+def t_2d( points, tfermi, number, i , ax_tof, ax_T , ax_TF, axTFN, legend_dict, xT):
 
   tof = points[:,k['ODT:odttof']]
   TF_2d_fug = []   # T/TF from 2D fugacity
@@ -314,14 +377,14 @@ def t_2d( points, tfermi, number, i , ax_tof, ax_T , ax_TF, axTFN, legend_dict):
   T_2d_r = unc.ufloat( (numpy.mean( T_2d_radial), numpy.std( T_2d_radial ) ) ) 
   T_2d_a = unc.ufloat( (numpy.mean( T_2d_axial), numpy.std( T_2d_axial ) ) )
  
-  ax_tof.plot( tof, points[:,k['CPP:TF_2d']], 's', markeredgecolor=colors[i], markerfacecolor="None", markeredgewidth=2., markersize=8, alpha=1.0)
+  ax_tof.plot( tof, points[:,k['CPP:TF_2d']], 's', markeredgecolor=colors[i], markerfacecolor="None", markeredgewidth=1.0, markersize=3, alpha=1.0)
   #ax_tof.plot( tof, points[:,k['CPP:T_2d_rd']]/tfermi.nominal_value, '<', markeredgecolor=colors[i], markerfacecolor="None", markeredgewidth=2., markersize=8, alpha=1.0)
   #ax_tof.plot( tof, points[:,k['CPP:T_2d_ax']]/tfermi.nominal_value, '>', markeredgecolor=colors[i], markerfacecolor="None", markeredgewidth=2., markersize=8, alpha=1.0)
 
   evapimage = points[0,k['EVAP:image']]/1000.
 
   #******* T/TF FUGACITY
-  xT = numpy.array( [ evapimage ] )
+  #xT = numpy.array( [ evapimage ] )
   T_2d_f = TF_2d_f * tfermi
   yT = numpy.array( [T_2d_f.nominal_value ] )
   yTerr = numpy.array( [T_2d_f.std_dev() ] ) 
@@ -380,12 +443,12 @@ def t_2d( points, tfermi, number, i , ax_tof, ax_T , ax_TF, axTFN, legend_dict):
 #
 #   ...
 #--------------------------------------------------
-def eta_plot(points, depth, i, T, T_az_s, ax):
+def eta_plot(points, depth, i, T, T_az_s, ax, xT):
   evapimage = points[0,k['EVAP:image']]/1000.
 
   #******* ETA AZIMUTHAL FUGACITY
   etaAZ = depth / T_az_s
-  xT = numpy.array( [ evapimage ] )
+  #xT = numpy.array( [ evapimage ] )
   yT = numpy.array( [ etaAZ.nominal_value ] )
   yTerr = numpy.array( [ etaAZ.std_dev() ] ) 
   if yTerr[0] < maxerror* yT[0]:
@@ -405,26 +468,62 @@ def eta_plot(points, depth, i, T, T_az_s, ax):
 if __name__ == "__main__":
   parser = argparse.ArgumentParser('plotevap.py')
   parser.add_argument('RANGE', action="store", type=str, help='range of shots to be considered for plotevap')
+  parser.add_argument('--var', action="store")
+  parser.add_argument('--xlim', action="store")
+  parser.add_argument('--sizes', action="store")
 
   args = parser.parse_args()
   #print os.getcwd()
   #print args.RANGE
 
+  print args.var
+  if args.var not in keys:
+    parameter = 'EVAP:image'
+  else:
+    parameter = args.var
+
+  print args.xlim
+  if args.xlim != None:
+    xlim = args.xlim.split(',')
+    xlim = [ float(i) for i in xlim ]
+    print xlim
+  else:
+    xlim = None
+
+  print args.sizes
+  sizes = None
+
+  print "Plotting with VARIABLE = %s" % parameter
+
   #
   # EXTRACT DATA FROM REPORTS 
   # 
   evapdat, errmsg, raw = qrange.qrange( os.getcwd() +'/' , args.RANGE, ' '.join(keys))
-  extracted = extract_same_depths( evapdat )
-  lowestdepth = sorted(extracted.keys())[0]
+  extracted = extract_same( evapdat, parameter )
+
+  #
+  # EXTRACT ODT and BFIELD TRAJECTORIES 
+  #
+  lowestdepth = sorted(extracted.keys())[-1]
+  print lowestdepth
   lowestdepth_report = configobj.ConfigObj ( "report%04d.INI" % extracted[lowestdepth][0][k['SEQ:shot']] )
+  stepsize = float( lowestdepth_report['EVAP']['evapss'] )
+  maxdepth = float( lowestdepth_report['ODTCALIB']['maxdepth'] )
+
   lowestdepth_rampfile =  re.sub('L:', '/lab', lowestdepth_report['EVAP']['ramp'] )
   if '_phys' != lowestdepth_rampfile[-5:]:
     print "Appending _phys to the ramp file obtained from the report"
     lowestdepth_rampfile = lowestdepth_rampfile + '_phys'
   evapramp = numpy.fromfile( lowestdepth_rampfile , sep='\n')
-  stepsize = float( lowestdepth_report['EVAP']['evapss'] )
-  maxdepth = float( lowestdepth_report['ODTCALIB']['maxdepth'] )
   evapramp = evapramp / 10. * maxdepth / 5.  # Trap depth divided by 5
+
+  try:
+    lowestdepth_fieldfile =  re.sub('L:', '/lab', lowestdepth_report['EVAP']['ramp_field'] )
+    fieldramp = numpy.fromfile( lowestdepth_fieldfile , sep=',')
+    fieldramp = fieldramp * 6.8 * 18.06 # Magnetic field in gauss  6.8 G/A, and 18.06 A/Volt
+  except:
+    fieldramp = None
+
   evaptime = numpy.linspace( 0.0, evapramp.shape[0]*stepsize/1000., evapramp.shape[0] )
 
   # 
@@ -444,12 +543,23 @@ if __name__ == "__main__":
   figh = 8.5 * figscale
   fig = plt.figure( figsize=(figw,figh) )
 
+  # TRAJECTORY AXES
+  axTRAJ = fig.add_axes( [0.05,0.08,0.28,0.28])
+  axTRAJ.plot( evaptime, evapramp)
+  if fieldramp != None:
+    print "evaptime:", evaptime.shape
+    print "fieldramp:", fieldramp.shape
+    axTRAJ2 = axTRAJ.twinx()
+    try:
+      axTRAJ2.plot( evaptime, fieldramp[0:-1])
+    except:
+      print "Error plotting field ramp"
+   
+
   # TEMPERATURE AXES
   axT = fig.add_axes( [0.05,0.665,0.25,0.32])
   axTzoom = fig.add_axes( [0.05,0.44,0.25,0.22])
   axesT = [ axT, axTzoom ]
-  for ax in axesT:
-    ax.plot( evaptime,  evapramp )
 
   # ETA AXES
   axETA = axT.twinx() 
@@ -460,7 +570,8 @@ if __name__ == "__main__":
   axesTF = [ axTF, axTFzoom ]
   for aa,ax in enumerate(axesTF):
     aux = ax.twinx()
-    aux.plot( evaptime, evapramp )
+    if parameter == 'EVAP:image':
+      aux.plot( evaptime, evapramp )
     if aa == 0:
       aux.set_ylim(0,80.)
     if aa == 1:
@@ -474,7 +585,8 @@ if __name__ == "__main__":
   axesN = [ axN, axNzoom ]
   for aa,ax in enumerate(axesN):
     aux = ax.twinx()
-    aux.plot( evaptime, evapramp )
+    if parameter == 'EVAP:image':
+      aux.plot( evaptime, evapramp )
     if aa == 0:
       aux.set_ylim(0,80.)
     if aa == 1:
@@ -482,54 +594,75 @@ if __name__ == "__main__":
     for tick in aux.yaxis.get_major_ticks():
       tick.set_visible(False)
 
-  # RADIAL SIZE AXES
-  axSIZE = fig.add_axes( [0.05,0.08,0.25,0.28])
-
-  # T/T_FERMI vs. TIME-OF-FLIGHT AXES
-  axTFtof = fig.add_axes( [0.365,0.08,0.25,0.28])
+  if sizes != None:
+    # RADIAL SIZE AXES
+    axSIZE = fig.add_axes( [0.42,0.06,0.20,0.18])
+    # T/T_FERMI vs. TIME-OF-FLIGHT AXES
+    axTFtof = axSIZE.twinx()
+  else:
+    # RADIAL SIZE AXES
+    axTFtof = fig.add_axes( [0.42,0.06,0.20,0.18])
+    # T/T_FERMI vs. TIME-OF-FLIGHT AXES
+    axSIZE = axTFtof.twinx()
 
   # T/T_FERMI vs. NUMBER AXES
   axTFN = fig.add_axes( [0.69,0.08,0.25,0.28])
 
 
   #
-  # ITERATE OVER TRAP DEPTHS 
+  # ITERATE OVER VALUES OF PLOT PARAMETER 
   #
   alldat=[]
   allerr=[]
   legend_dict={}
-  for i,depth in enumerate( reversed(sorted(extracted.keys()))  ):
-    print i, depth
+  for i,value in enumerate( reversed(sorted(extracted.keys()))  ):
+    print i, value
     #pprint.pprint( extracted[depth] )
-    points = numpy.array(extracted[depth])
-  
+    points = numpy.array(extracted[value])
+   
+    # numpy array with value, read for matplotlib plot
+    xT = numpy.array ( [ value ] ) 
+ 
+    # trap depth 
+    fcpow = points[0,k['EVAP:finalcpow']]
+    U0    = points[0,k['ODTCALIB:maxdepth']]
+    depth = fcpow / 10. * U0
     shots  = points[:,k['SEQ:shot']] 
     print "shots:", shots
     evapimage =  numpy.array( [points[0,k['EVAP:image']]/1000. ] )[0]
-    tfermi, Num, Den = t_fermi( points , axesN)
+    tfermi, Num, Den = t_fermi( points , axesN, xT)
     print "EVAP:image   = ", evapimage
     print "Trap Depth   = ", depth
-    print "T_Fermi      = ", tfermi
     print "Number/1e5   = ", Num
-    print "Density/1e11 = ", Den
-   
+    print "T_Fermi      = ", tfermi
+    print "Density/1e12 = ", Den
+
+    xArray = points[0,k[parameter]]
+    if parameter == 'EVAP:image':
+      xArray = xArray / 1000.
+    if parameter == 'FESHBACH:bias':
+      xArray = xArray *6.8
+    if parameter == 'EVAP:fieldrampfinal':
+      xArray = xArray *6.8
+    xT = numpy.array( [ xArray ] )
+ 
     number = points[:,k['CPP:nfit']]
-    T, TF, TfitX, TfitY = tof_temperature(points, tfermi, Num, i, axSIZE, axesT, axesTF, axTFN, legend_dict)
+    T, TF, TfitX, TfitY = tof_temperature(points, tfermi, Num, i, axSIZE, axesT, axesTF, axTFN, legend_dict, xT)
     print "T  from TOF = " , T 
     print "TF from TOF = " , TF
 
-    TF_az_f, TF_az_s, T_az_s = t_azimuthal( points, tfermi, Num, i, axTFtof, axesT, axesTF, axTFN, legend_dict)
+    TF_az_f, TF_az_s, T_az_s = t_azimuthal( points, tfermi, Num, i, axTFtof, axesT, axesTF, axTFN, legend_dict, xT)
     print "T/TF Azimuthal Fugacity = ", TF_az_f
     print "T/TF Azimuthal Size     = ", TF_az_s
     print "T    Azimuthal Size     = ", T_az_s
 
-    TF_2d_f, T_2d_r, T_2d_a = t_2d( points, tfermi, Num, i, axTFtof, axesT, axesTF,  axTFN, legend_dict ) 
+    TF_2d_f, T_2d_r, T_2d_a = t_2d( points, tfermi, Num, i, axTFtof, axesT, axesTF,  axTFN, legend_dict, xT ) 
     print "T/TF 2D Fugacity    = ", TF_2d_f
     print "T    2D Radial Size = ", T_2d_r
     print "T    2D Axial  Size = ", T_2d_a 
 
     print ""
-    eta_plot( points,  depth, i, T, T_az_s, axETA)
+    eta_plot( points,  depth, i, T, T_az_s, axETA, xT)
 
 
 
@@ -561,7 +694,7 @@ if __name__ == "__main__":
     legend_list.append( legend_dict[key] )
     label_list.append( key )
 
-  plt.legend( legend_list, label_list, loc = 'upper right', bbox_to_anchor = (-0.4, 1.0), numpoints = 1,  ) 
+  plt.legend( legend_list, label_list, loc = 'upper right', bbox_to_anchor = (-0.3, 1.1), numpoints = 1,  ) 
   
 
 #--------------------------------------------------
@@ -589,9 +722,35 @@ if __name__ == "__main__":
   for tick in axETA.yaxis.get_major_ticks():
     tick.label.set_fontsize(fsize)
 
-  axETA.set_ylim(0.,9.)
-  #axT.set_xlim(0,500)
+  axETA.set_ylim(0.,10.)
   axETA.set_ylabel(r"$\eta$", fontsize=fsize, va='top', labelpad=-30)
+
+#--------------------------------------------------
+#   PLOT PARAMETER LABEL
+#--------------------------------------------------
+  if parameter == 'EVAP:image':
+    plotxlabel = r"Evaporation time (s)"
+  elif parameter == 'FESHBACH:bias':
+    plotxlabel = r"Bfield (G)"
+  elif parameter == 'EVAP:fieldrampfinal':
+    plotxlabel = r"Final Bfield (G)"
+  else:
+    plotxlabel = parameter
+
+  print "plotxlabel = %s" % plotxlabel
+
+#--------------------------------------------------
+#   TRAJECTORY PLOT
+#--------------------------------------------------
+  axTRAJ.spines["bottom"].set_linewidth(2)
+  axTRAJ.spines["top"].set_linewidth(2)
+  axTRAJ.spines["left"].set_linewidth(2)
+  axTRAJ.spines["right"].set_linewidth(2)
+
+  axTRAJ.set_xlabel( r"Evaporation time (s)", fontsize=fsize, labelpad=8)
+  axTRAJ.set_ylabel(r"$\mathrm{U(t)/5}\ (\mu \mathrm{K})$", fontsize=fsize, labelpad=6)
+  if fieldramp != None:
+    axTRAJ2.set_ylabel(r"$\mathrm{B-field}\ (\mathrm{G})$", fontsize=fsize, labelpad=6)
 
 #--------------------------------------------------
 #   TEMPERATURE PLOT
@@ -609,7 +768,9 @@ if __name__ == "__main__":
     tick.label.set_fontsize(fsize)
 
   axT.set_ylim(0.,80.)
-  #axT.set_xlim(0,500)
+  if xlim != None:
+    axT.set_xlim(xlim[0],xlim[1])
+    axTzoom.set_xlim(xlim[0],xlim[1])
 
   axT.spines["bottom"].set_linewidth(2)
   axT.spines["top"].set_linewidth(2)
@@ -620,13 +781,21 @@ if __name__ == "__main__":
   #axTb.set_ylabel('Delta Position on Camera\nwith respect to red (um)', fontsize=fsize, labelpad=25, ha = 'center')
 
   axTzoom.grid(True)
-  axTzoom.set_ylim(0.,8.)
-  axTzoom.yaxis.set_major_locator( matplotlib.ticker.FixedLocator( [ 0., 2., 4., 6.]))
+
+  # Set limits of temperature zoom axis
+  zoomYlim = min( 8.0 , axTzoom.get_ylim()[1])
+  axTzoom.set_ylim(0., zoomYlim )
+  for ax in axesT:
+    if parameter == 'EVAP:image':
+      ax.plot( evaptime,  evapramp, color='blue' )
+  zoomYticks = numpy.linspace(0., zoomYlim, 6) 
+  axTzoom.yaxis.set_major_locator( matplotlib.ticker.FixedLocator( zoomYticks[0:-1] ))
+
   axTzoom.spines["bottom"].set_linewidth(2)
   axTzoom.spines["top"].set_linewidth(2)
   axTzoom.spines["left"].set_linewidth(2)
   axTzoom.spines["right"].set_linewidth(2)
-  axTzoom.set_xlabel(r"Evaporation time (s)", fontsize=fsize, labelpad=8)
+  axTzoom.set_xlabel(plotxlabel, fontsize=fsize, labelpad=8)
   axTzoom.set_ylabel(r"$\mathrm{Temperature} \ (\mu \mathrm{K})$", fontsize=fsize, labelpad=6)
 
   for tick in axTzoom.xaxis.get_major_ticks():
@@ -650,7 +819,9 @@ if __name__ == "__main__":
     tick.label.set_fontsize(fsize)
 
   axTF.set_ylim(0.,2.)
-  #axTF.set_xlim(0,500)
+  if xlim != None:
+    axTF.set_xlim(xlim[0],xlim[1])
+    axTFzoom.set_xlim(xlim[0],xlim[1])
 
   axTF.spines["bottom"].set_linewidth(2)
   axTF.spines["top"].set_linewidth(2)
@@ -661,14 +832,19 @@ if __name__ == "__main__":
   #axTFb.set_ylabel('Delta Position on Camera\nwith respect to red (um)', fontsize=fsize, labelpad=25, ha = 'center')
 
   axTFzoom.grid(True)
-  axTFzoom.set_ylim(0.,.8)
-  axTFzoom.yaxis.set_major_locator( matplotlib.ticker.FixedLocator( [ 0., .2, .4, .6]))
+  # Set limits of T/TF zoom axis
+  zoomTFYlim = min( 0.8 , axTFzoom.get_ylim()[1])
+  axTFzoom.set_ylim(0., zoomTFYlim )
+  zoomTFYticks = numpy.linspace(0., zoomTFYlim, 6) 
+  axTFzoom.yaxis.set_major_locator( matplotlib.ticker.FixedLocator( zoomTFYticks[0:-1] ))
+
+
   axTFzoom.yaxis.set_major_formatter( matplotlib.ticker.FormatStrFormatter(r'%.2f'))
   axTFzoom.spines["bottom"].set_linewidth(2)
   axTFzoom.spines["top"].set_linewidth(2)
   axTFzoom.spines["left"].set_linewidth(2)
   axTFzoom.spines["right"].set_linewidth(2)
-  axTFzoom.set_xlabel(r"Evaporation time (s)", fontsize=fsize, labelpad=8)
+  axTFzoom.set_xlabel(plotxlabel, fontsize=fsize, labelpad=8)
   axTFzoom.set_ylabel(r"$T/T_{F}$", fontsize=fsize, labelpad=6)
 
   for tick in axTFzoom.xaxis.get_major_ticks():
@@ -692,7 +868,10 @@ if __name__ == "__main__":
     tick.label.set_fontsize(fsize)
 
   #axN.set_ylim(0.,3.)
-  axN.set_xlim(0,10)
+  #axN.set_xlim(0,10)
+  if xlim != None:
+    axN.set_xlim(xlim[0],xlim[1])
+    axNzoom.set_xlim(xlim[0],xlim[1])
 
   axN.spines["bottom"].set_linewidth(2)
   axN.spines["top"].set_linewidth(2)
@@ -702,16 +881,15 @@ if __name__ == "__main__":
   axN.set_ylabel(r"$\mathrm{Number}\ /10^{5}$", fontsize=fsize, labelpad=6)
   #axNb.set_ylabel('Delta Position on Camera\nwith respect to red (um)', fontsize=fsize, labelpad=25, ha = 'center')
 
-  axNzoom.set_xlim(0.,10)
   #axNzoom.yaxis.set_major_locator( matplotlib.ticker.FixedLocator( [ 0., .2, .4, .6]))
   axNzoom.grid(True)
-  axNzoom.yaxis.set_major_formatter( matplotlib.ticker.FormatStrFormatter(r'%d'))
+  axNzoom.yaxis.set_major_formatter( matplotlib.ticker.FormatStrFormatter(r'%.1f'))
   axNzoom.spines["bottom"].set_linewidth(2)
   axNzoom.spines["top"].set_linewidth(2)
   axNzoom.spines["left"].set_linewidth(2)
   axNzoom.spines["right"].set_linewidth(2)
-  axNzoom.set_xlabel(r"Evaporation time (s)", fontsize=fsize, labelpad=8)
-  axNzoom.set_ylabel(r"$\mathrm{Density} /10^{11} (\mathrm{cm}^{-3})$", fontsize=fsize, labelpad=6)
+  axNzoom.set_xlabel(plotxlabel, fontsize=fsize, labelpad=8)
+  axNzoom.set_ylabel(r"$\mathrm{Density} /10^{12} (\mathrm{cm}^{-3})$", fontsize=fsize, labelpad=6)
   
   axNzoom.yaxis.get_major_ticks()[-1].label.set_visible(False)
 
@@ -728,7 +906,6 @@ if __name__ == "__main__":
   axSIZE.set_ylabel('Radial size (um)', fontsize=fsize/1.0, labelpad=12, ha = 'center')
   axSIZE.xaxis.set_major_formatter( matplotlib.ticker.FormatStrFormatter(r'%d'))
   axSIZE.xaxis.set_major_locator( matplotlib.ticker.MultipleLocator( 1.0) )
-  #axSIZE.set_xlim(-0.2, len(args.datfiles)- 0.8 )
   fsize = 12
   for tick in axSIZE.xaxis.get_major_ticks():
     tick.label.set_fontsize(fsize)
@@ -738,16 +915,23 @@ if __name__ == "__main__":
   axSIZE.spines["top"].set_linewidth(2)
   axSIZE.spines["left"].set_linewidth(2)
   axSIZE.spines["right"].set_linewidth(2)
-  axSIZE.set_xlim(0,3.) 
-  axSIZE.set_ylim(0,200) 
+  axSIZE.set_xlim(0,0.8) 
+  axSIZE.set_ylim(0,75)
+  axSIZE.set_visible(False)
+  if sizes != None:
+    axSIZE.set_visible(True)
+   
 
 #--------------------------------------------------
 #   T/TF vs TIME-OF-FLIGHT PLOT
 #--------------------------------------------------
   axTFtof.grid(True)
-  axTFtof.set_ylim(0,2.0)
+  TFtofylim = min(0.25, axTFtof.get_ylim()[1])
+  axTFtof.set_ylim(0,TFtofylim)
   axTFtof.set_xlabel(r"Time-of-flight (ms)", fontsize=fsize/1.0, labelpad=10)
   axTFtof.set_ylabel(r'$T/T_{F}$', fontsize=fsize/1.0, labelpad=10, ha = 'center')
+  axSIZE.xaxis.set_major_formatter( matplotlib.ticker.FormatStrFormatter(r'%.1f'))
+  axSIZE.xaxis.set_major_locator( matplotlib.ticker.MultipleLocator( 0.2) )
   for tick in axTFtof.xaxis.get_major_ticks():
     tick.label.set_fontsize(fsize)
   for tick in axTFtof.yaxis.get_major_ticks():
@@ -756,14 +940,16 @@ if __name__ == "__main__":
   axTFtof.spines["top"].set_linewidth(2)
   axTFtof.spines["left"].set_linewidth(2)
   axTFtof.spines["right"].set_linewidth(2)
-  axTFtof.set_visible(False)
+  if sizes != None:
+    axTFtof.set_visible(False)
 
 #--------------------------------------------------
 #   T/TF vs NUMBER PLOT
 #--------------------------------------------------
   axTFN.grid(True)
   #axTFN.set_xlim(None,0.)
-  axTFN.set_ylim(0,0.6)
+  TFYlim = min( 0.6 , axTFN.get_ylim()[1])
+  axTFN.set_ylim(0,TFYlim)
   axTFN.set_xlabel(r"$\mathrm{Number}\ /10^{5}$", fontsize=fsize/1.0, labelpad=10)
   axTFN.set_ylabel(r'$T/T_{F}$', fontsize=fsize/1.0, labelpad=10, ha = 'center')
   for tick in axTFN.xaxis.get_major_ticks():
@@ -788,8 +974,8 @@ if __name__ == "__main__":
 
   datestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
   #print output
-  #fig.savefig( "debug.png" , dpi=140)
   stamp = output + " plotted on " + datestamp
   fig.text( 0.01, 0.01, stamp)
+  #fig.savefig( "debug.png" , dpi=140)
   fig.savefig( output , dpi=140)
 
