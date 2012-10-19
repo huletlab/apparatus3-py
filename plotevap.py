@@ -42,7 +42,7 @@ colors = ['black', 'brown', 'red', 'orange', 'green', 'blue', 'magenta', 'gray',
 
 # Points that have error bars larger than this will not be shown
 # value is as fraction of the data point
-maxerror = 0.75
+maxerror = 1.5
 
 #--------------------------------------------------
 #   EXTRACT SAME 
@@ -468,9 +468,9 @@ def eta_plot(points, depth, i, T, T_az_s, ax, xT):
 if __name__ == "__main__":
   parser = argparse.ArgumentParser('plotevap.py')
   parser.add_argument('RANGE', action="store", type=str, help='range of shots to be considered for plotevap')
-  parser.add_argument('--var', action="store")
-  parser.add_argument('--xlim', action="store")
-  parser.add_argument('--sizes', action="store")
+  parser.add_argument('--var', action="store", help='SEC:KEY for variable that is used in x axis')
+  parser.add_argument('--xlim', action="store", help='Plotting limits for x axis. Must be in the form: x0,xf ')
+  parser.add_argument('--sizes', action="store",help='Set flag if you want to see the SIZE vs. TOF plot instead of T/TF vs TOF.' )
 
   args = parser.parse_args()
   #print os.getcwd()
