@@ -24,8 +24,9 @@ if __name__ == "__main__":
   #print type(args)
   #print args
   if args.wavelength == 1070:
-    fit = fitlibrary.fitdict['Beam1070']
-  
+    fit = fitlibrary.fitdict['Beam1070m2']
+  elif args.wavelength == 671:
+    fit = fitlibrary.fitdict['Beam671']
   else:
     print "  ERROR: unrecognzed wavelength. Program will exit"
 
@@ -49,12 +50,12 @@ if __name__ == "__main__":
     print i    
     print "Fitting %s" % dat
     d = numpy.loadtxt( dat)
-    p0 = [ 70., 250.]
+    p0 = [ 70., 250., 1.0]
     Hpfit, Herror = fitlibrary.fit_function( p0, d[:, [0,1]], fit.function)  
     Vpfit, Verror = fitlibrary.fit_function( p0, d[:, [0,2]], fit.function)  
 
-    Hleg = "%s\nwH = %.2f um at %.0f MIL" % ( dat, Hpfit[0], Hpfit[1] ) 
-    Vleg = "wV = %.2f um at %.0f MIL" % ( Vpfit[0], Vpfit[1] )
+    Hleg = "%s\nwH = %.2f um at %.0f MIL, M2=%.2f" % ( dat, Hpfit[0], Hpfit[1], Hpfit[2] ) 
+    Vleg = "wV = %.2f um at %.0f MIL, M2=%.2f" % ( Vpfit[0], Vpfit[1], Vpfit[2] )
    
     astigmatism = Hpfit[1] - Vpfit[1] 
     postdat = numpy.array( [[ i, Hpfit[0], Vpfit[0], astigmatism]] )
@@ -112,7 +113,7 @@ if __name__ == "__main__":
   for tick in ax1.yaxis.get_major_ticks():
     tick.label.set_fontsize(fsize)
 
-  ax1.set_ylim(57,92)
+  ax1.set_ylim(50,85)
   ax1.set_xlim(0,500)
 
   ax1.spines["bottom"].set_linewidth(2)

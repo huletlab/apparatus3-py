@@ -17,7 +17,7 @@ if __name__ == "__main__":
    prefix = sys.argv[5]
 
    falsecolor.inspecpng( [data, fit], row, col, data.min(), data.max(), \
-                         falsecolor.my_rainbow, prefix, 100, origin = 'upper' ) 
+                         falsecolor.my_rainbow, prefix, 100, origin = 'lower' ) 
   
    
    

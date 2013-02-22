@@ -23,7 +23,7 @@ def savepng( data , cmin, cmax , colormap, id, dpi, origin='lower'):
    plt.savefig(pngpath, dpi=dpi)
    return pngpath
 
-def inspecpng( imglist , inspec_row, inspec_col, cmin, cmax, colormap, id, dpi, origin='lower', scale=1.0,step=False, interpolation=None, extratext=''):
+def inspecpng( imglist , inspec_row, inspec_col, cmin, cmax, colormap, id, dpi, origin='lower', scale=1.0,step=False, interpolation=None, extratext='',alphadata=0.35, alphacross=0.4):
    """Makes an inspector plot (falsecolor plus cuts) for the list of images, the first image
       is always the data and the rest are treated as fits"""
    shape = imglist[0].shape
@@ -31,7 +31,7 @@ def inspecpng( imglist , inspec_row, inspec_col, cmin, cmax, colormap, id, dpi, 
      if img.shape != shape:
        print " --->  ERROR:  falsecolor.inspecpng  cannot handle images of different shapes"
        exit(1)
-  
+
    #Inspec png accepts float for row and col
    finspec_row = float(inspec_row)
    finspec_col = float(inspec_col)
@@ -73,7 +73,7 @@ def inspecpng( imglist , inspec_row, inspec_col, cmin, cmax, colormap, id, dpi, 
    ysize  = axh_in/figh_in
    axRect = [xstart, ystart, xsize, ysize]
    ax = fig.add_axes(axRect,frameon=True)
-   im = ax.imshow(imglist[0], cmap=colormap, vmin=cmin,vmax=cmax, origin=origin, interpolation=interpolation)
+   im = ax.imshow(imglist[0], cmap=colormap, vmin=cmin,vmax=cmax, interpolation=interpolation)
 
    centertext = 'shot #%s\ncenter at (%.1f, %.1f)' % (id,finspec_col,finspec_row)
    centertext = centertext + extratext
@@ -87,13 +87,12 @@ def inspecpng( imglist , inspec_row, inspec_col, cmin, cmax, colormap, id, dpi, 
    axFITRect = [xstart, ystart, xsize, ysize]
    axFIT = fig.add_axes( axFITRect, frameon=True)
    if len(imglist) > 1 :
-     axFIT.imshow( imglist[1], cmap=colormap, vmin=cmin, vmax=cmax, origin=origin)
+     axFIT.imshow( imglist[1], cmap=colormap, vmin=cmin, vmax=cmax, interpolation=interpolation)
    axFIT.xaxis.set_ticklabels([])
    axFIT.yaxis.set_ticklabels([])
  
-   alphacross = 0.4
-   alphadata = 0.35 
-   
+  
+   #THIS IS THE LINE PLOT ON THE TOP 
    ax.axhline( finspec_row, linewidth=0.8, color='black', alpha=alphacross)
    #
    ###axROW = fig.add_axes([xstart,ygap+axh, axw, ys], frameon=True)
@@ -110,8 +109,10 @@ def inspecpng( imglist , inspec_row, inspec_col, cmin, cmax, colormap, id, dpi, 
      axROW.plot( imglist[0][ inspec_row, :] , color='blue', alpha=alphadata)
    for img in imglist[1:]:
      axROW.plot( img[ inspec_row, :] , color='blue')
-   axROW.xaxis.set_ticklabels([]) 
+   axROW.xaxis.set_ticklabels([])
+ 
 
+   #THIS IS THE LINE PLOT ON THE RIGHT
    ax.axvline( finspec_col, linewidth=0.8, color='black', alpha=alphacross)
    #
    ###axCOL = fig.add_axes([xgap+axw,ystart, xs , axh], frameon=True)
@@ -123,7 +124,10 @@ def inspecpng( imglist , inspec_row, inspec_col, cmin, cmax, colormap, id, dpi, 
    axCOL = fig.add_axes(axCOLRect, frameon=True)
 
    xarray = np.arange( len( imglist[0][:, inspec_col]) )
-   axCOL.set_ylim( len( imglist[0][ :, inspec_col])-1, 0)
+   if origin == 'lower':
+     axCOL.set_ylim( 0, len( imglist[0][ :, inspec_col])-1)
+   else:
+     axCOL.set_ylim( len( imglist[0][ :, inspec_col])-1, 0)
    if step:
      xarray = xarray + 0.5
      axCOL.step( imglist[0][ : , inspec_col], xarray , color='red', alpha=alphadata, where='mid')
@@ -137,7 +141,10 @@ def inspecpng( imglist , inspec_row, inspec_col, cmin, cmax, colormap, id, dpi, 
      label.set_rotation(-90)
 
    ax.set_xlim ( 0, len(imglist[0][ inspec_row, :])-1 )
-   ax.set_ylim ( len(imglist[0][ :, inspec_col])-1, 0)
+   
+   if origin == 'lower': 
+     ax.set_ylim ( 0, len(imglist[0][ :, inspec_col])-1)
+     axFIT.set_ylim ( 0, len(imglist[0][ :, inspec_col])-1)
    
    labels = ax.get_xticklabels()
    for label in labels:

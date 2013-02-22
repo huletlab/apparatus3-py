@@ -15,11 +15,26 @@ import gaussfitter
 import qrange
 
 
-def get_counts( out , box):
+def get_counts( out , args, boxsize):
+  box = boxsize
   #print out.max()
   col = out.max(axis=0).argmax()
   row = out.max(axis=1).argmax()
-  print "Max at (%d,%d) = %d" % ( row,col, out[row,col])
+
+
+  if box == args.braggpixels:
+      print "usr@(%d,%d)=%d" % ( args.CX, args.CY , args.Ccts),
+      print "  max@(%d,%d)=%d" % ( row+args.X0,col+args.Y0, out[row,col]),
+
+  if numpy.linalg.norm( [args.CX-args.X0-row, args.CY-args.Y0-col] ) > 2.:
+      # When max is not at the user specified center
+      # it sets row,col at the user specified center
+      row = args.CX-args.X0
+      col = args.CY-args.Y0
+
+  if box == args.braggpixels:
+      print " c=(%d,%d)" %  ( row+args.X0,col+args.Y0),
+
 
   #print args.SIZE
   br0 = 1+row+numpy.ceil(-box/2)
@@ -28,21 +43,54 @@ def get_counts( out , box):
   bc1 = 1+col+numpy.ceil(box/2)
  
   bragg = out[ br0:br1 , bc0:bc1]
+  #print "bragg.shape =", bragg.shape
 
   mask = numpy.ones( out.shape)
   mask[ br0:br1, bc0:bc1 ] = 0.
-  offset = numpy.sum( mask * out ) / ( out.shape[0]*out.shape[1] - bragg.shape[0]*bragg.shape[1] ) 
+
+  offset = numpy.sum( mask * out ) \
+           / ( out.shape[0]*out.shape[1] - bragg.shape[0]*bragg.shape[1] ) 
  
   patch = numpy.ones( out.shape) * offset 
 
   braggcounts = numpy.sum(numpy.sum(bragg))
   patchcounts = bragg.shape[0]*bragg.shape[1]*offset
-  return braggcounts, patchcounts, col, row, patch
 
-def analyze_path( mantapath , pngprefix, roi, box):
-  print "Analyzing %s" % e
+  results={}
+  results['col'] = col
+  results['row'] = row
+
+  results['peak_raw_%d'%box] = out[row,col]
+  results['peak_offset_%d'%box] = offset
+  results['peak_net_%d'%box] = out[row,col] - offset
+
+  results['sum_raw_%d'%box] = braggcounts
+  results['sum_offset_%d'%box] = patchcounts
+  results['sum_net_%d'%box] = braggcounts - patchcounts
+  
+  if box == args.braggpixels:
+    print "  peak:%.1f[%d,%.1f]  sum(%d):%.1f[%d,%.1f]" % \
+    (results['peak_net_%d'%box], results['peak_raw_%d'%box], results['peak_offset_%d'%box],\
+     bragg.shape[0],\
+     results['sum_net_%d'%box], results['sum_raw_%d'%box], results['sum_offset_%d'%box]),
+    print "  offset=%.3f" % offset
+          
+
+  return results
+
+
+def rebin(a, binsz):
+    shape = (a.shape[0]/binsz , a.shape[1]/binsz)
+    sh = shape[0],a.shape[0]//shape[0],shape[1],a.shape[1]//shape[1]
+    #print "Original shape : ", a.shape
+    #print "     New shape : ", shape
+    #print " Process shape : ", sh
+    return a.reshape(sh).sum(-1).sum(1)
+
+def analyze_path( mantapath , args):
   shotnum =  os.path.basename( mantapath ).split('atoms.manta')[0]
   shotnum = "%04d" % int(shotnum)
+  print "\n%s" % shotnum,
 
   atomsfile = shotnum + 'atoms.manta'
 
@@ -50,64 +98,67 @@ def analyze_path( mantapath , pngprefix, roi, box):
   shot = atomsfile.split('atoms')[0]
   atoms     = numpy.loadtxt( shot + 'atoms.manta')
   noatoms   = numpy.loadtxt( shot + 'noatoms.manta')
-  atomsref  = numpy.loadtxt( shot + 'atomsref.manta')
-  noatomsref= numpy.loadtxt( shot + 'noatomsref.manta')
+  #atomsref  = numpy.loadtxt( shot + 'atomsref.manta')
+  #noatomsref= numpy.loadtxt( shot + 'noatomsref.manta')
 
   operation = 'PHC' 
+  try: 
+     if operation == 'ABS':
+       out = (atoms - atomsref) / (noatoms - noatomsref)
+     elif operation == 'PHC':
+       out = atoms - noatoms
+       #out = (atoms - atomsref) - (noatoms - noatomsref) 
+     else:
+       print " -->  Operation is not ABS or PHC.  Program will exit"
+       exit(1) 
+  except:
+     print "...ERROR performing background and reference subtraction"
+     return
   
-  if operation == 'ABS':
-    out = (atoms - atomsref) / (noatoms - noatomsref)
-  elif operation == 'PHC':
-    out = (atoms - atomsref) - (noatoms - noatomsref) 
-  else:
-    print " -->  Operation is not ABS or PHC.  Program will exit"
-    exit(1) 
-   
-  if roi:
-    X0 = float(roi.split(',')[0])
-    Y0 = float(roi.split(',')[1])
-    XW = float(roi.split(',')[2])
-    YW = float(roi.split(',')[3])
-    out = out[Y0:Y0+YW, X0:X0+XW]
-  else:
-    X0 = 0.
-    Y0 = 0.
-    XW = out.shape[0]
-    YW = out.shape[1] 
-  #print out.shape
+  try:
+    CX = float(args.c.split(',')[0])   
+    CY = float(args.c.split(',')[1])   
+    args.Ccts = out[CY,CX]
+    hs = args.size / 2
+    off = 3 
+    out = out[ CY-hs-off:CY+hs-off, CX-hs-off:CX+hs-off ]
+    args.X0 = CX-hs-off
+    args.Y0 = CY-hs-off
+    args.CX = CX
+    args.CY = CY
+  except:
+    print "...Could not crop to specified center and size"
+    print "...  c = (%s),  size = %d" % (args.c, args.size)
+    exit(1)
 
+  #All cropped data is saved in the data dir for averaging use
   numpy.savetxt(shot+'_bragg.dat', out, fmt='%d')
 
-  braggcounts, patchcounts, col, row, patch = get_counts(out, box) 
-  braggsig = braggcounts - patchcounts
-
-  pstart = [patchcounts/box/box,braggsig, row, col, 5., 5., 0.] 
-  p, fitimg =  gaussfitter.gaussfit( out, params=pstart, returnfitimage=True)
-  # p = [height, amplitude, x, y, width_x, width_y, rotation]
-  braggsig_gaus = p[1]*numpy.absolute(p[4])*numpy.absolute(p[5])*2*numpy.pi
-
-
-  extratext = "   Bragg(gauss) = %.0f" % braggsig_gaus
-
- 
-  pngprefix = pngprefix + shotnum + '_bragg'
-  falsecolor.inspecpng( [out, fitimg, patch], row, col, out.min(), out.max(), \
-                         falsecolor.my_grayscale, pngprefix, 100, origin = 'upper' , step=True, scale=10, interpolation='nearest', extratext=extratext)
-  
-
-
+  #Results
+  center = (CX,CY)
   inifile = "report" + shotnum + ".INI"
   report = ConfigObj(inifile)
+  report['BRAGG'] = {}
+  for boxsize in (2. ,4., 6., 8.):
+    r = get_counts(out, args, boxsize) 
+    for key in r.keys():
+        report['BRAGG'][key] = r[key]
+    report.write()
+
+  if not os.path.exists(args.path):
+    os.makedirs(args.path)
  
-  report['BRAGG'] = {} 
-  report['BRAGG']['rawbragg'] = braggcounts
-  report['BRAGG']['patch'] = patchcounts
-  report['BRAGG']['bragg'] = braggsig
+  pngprefix = args.path + shotnum + '_bragg' 
+  falsecolor.inspecpng( [out], \
+                        r['row'], r['col'], out.min(), out.max(), \
+                        falsecolor.my_grayscale, \
+                        pngprefix, 100, origin = 'upper' , \
+                        step=True, scale=10, \
+                        interpolation='nearest', \
+                        extratext='')
+
   
-  report.write()
- 
-  print "%s -->  Bragg(gauss) = %6.0f ,  Bragg = %6.0f ,  Raw =  %6d ,  Offset = %6.0f" % (shotnum, braggsig_gaus, braggsig, braggcounts, patchcounts) 
-  
+  return
 
 
 # --------------------- MAIN CODE  --------------------#
@@ -115,25 +166,50 @@ def analyze_path( mantapath , pngprefix, roi, box):
 
 if __name__ == "__main__":
   parser = argparse.ArgumentParser('braggData.py')
-  parser.add_argument('SIZE', action="store", type=int, help='size in pixels of bragg peak region')
-  parser.add_argument('-r', action="store", dest='ROI', type=str, help='XO,Y0,XW,YW region of interest')
-  parser.add_argument('-d', action = "store", dest='DIR', type=str, help="path of directory for output png file")
-  parser.add_argument('--backwards', action = "store_true", dest='BACKWARDS', help="analyze files already on disk starting with the last one.  prompt at each")
-  parser.add_argument('--forcebackwards', action = "store_true", dest='FBACKWARDS', help="analyze files already on disk starting with the last one.  DO NOT prompt at each")
-  parser.add_argument('--range', action = "store", dest='range', help="analyze files in the specified range.  DO NOT prompt at each")
+
+  parser.add_argument('--size', \
+         action="store", type=int, \
+         help='size in px of crop region.  default = 120')
+
+  parser.add_argument('--braggpixels', \
+         action="store", type=int, \
+         help='size in pixels of bragg peak. default = 8')
+
+  parser.add_argument('-c', \
+         action="store", type=str, \
+         help='X,Y, of Bragg pixel. default = 731,474')
+
+  parser.add_argument('--backwards', \
+         action = "store_true", dest='BACKWARDS', \
+         help="analyze files already on disk starting with \
+               the last one.  prompt at each")
+
+  parser.add_argument('--forcebackwards', \
+         action = "store_true", dest='FBACKWARDS', \
+         help="analyze files already on disk starting with \
+               the last one.  DO NOT prompt at each")
+
+  parser.add_argument('--range', action = "store", \
+         dest='range', help="analyze files in the specified range.  \
+                             DO NOT prompt at each")
  
   args = parser.parse_args()
-  #print type(args)
-  #print args
  
+  if not args.braggpixels:
+      args.braggpixels = 8  # Big enough
+ 
+  if not args.size:
+      args.size = 120  # Least common multiple of 1,2,3,4,5,6,8
+                       # for easy binning
+  if not args.c:
+      args.c = '731,474'  # Last pixel where we saw counts
+  
 
   import monitordir
   import os
 
-  if args.DIR:
-     pngprefix = args.DIR  
-  else:
-     pngprefix = ''
+  #Set the directory where png's will be saved
+  args.path = 'braggdata/' 
  
   
   if args.range != None:
@@ -141,12 +217,10 @@ if __name__ == "__main__":
     list = glob.glob( os.getcwd() +  '/????atoms.manta' )
     list.sort()
     for e in list:
-      for s in shots:
-        if s in e:
-          try:
-            analyze_path( e, pngprefix, args.ROI, args.SIZE)
-          except:
-            print "ERROR analyzing %s" % e
+      eshot =  os.path.split(e)[1].split('atoms')[0]
+      if eshot in shots:
+          analyze_path( e, args)
+    print ""
     exit(0)
     
 
@@ -154,10 +228,10 @@ if __name__ == "__main__":
     list = glob.glob( os.getcwd() +  '/????atoms.manta' )
     list.sort()
     list.reverse()
-    print list
+    #print list
     for e in list:
       try:
-        analyze_path( e, pngprefix, args.ROI, args.SIZE)
+        analyze_path( e, args)
       except:
         print "ERROR analyzing %s" % e
       if args.FBACKWARDS:
@@ -171,9 +245,13 @@ if __name__ == "__main__":
   list = glob.glob( os.getcwd() +  '/????atoms.manta' )
   list.sort()
   e=list[-1]
-  analyze_path( e, pngprefix, args.ROI, args.SIZE)
+  print e
+  analyze_path( e, args)
 
   while (1):
     new = monitordir.waitforit( os.getcwd(), '/????atoms.manta' )
     for e in new:
-      analyze_path( e, pngprefix, args.ROI, args.SIZE)
+      analyze_path( e, args)
+
+
+

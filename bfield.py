@@ -10,12 +10,12 @@ parser.add_argument('CURRENT', action='store', type=float, help='magnetic field'
 args = parser.parse_args()
 
 
-toGauss = 6.84
+toGauss = 6.87
 
 bfield = args.CURRENT * toGauss
 
 
-zeeman = numpy.loadtxt('2S2Pcombined.dat')
+zeeman = numpy.loadtxt('/lab/software/apparatus3/py/2S2Pcombined.dat')
 
 offset = -77.813 - 100.  #Account for the zero field value of the levels
                         #and for the -100 MHz of the imaging AOM

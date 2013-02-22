@@ -42,7 +42,7 @@ colors = ['black', 'brown', 'red', 'orange', 'green', 'blue', 'magenta', 'gray',
 
 # Points that have error bars larger than this will not be shown
 # value is as fraction of the data point
-maxerror = 1.5
+maxerror = .75
 
 #--------------------------------------------------
 #   EXTRACT SAME 
@@ -278,6 +278,8 @@ def t_azimuthal( points , tfermi, number, i, ax_tof, ax_T, ax_TF, axTFN, legend_
       TF_az_fug.append(  points[j,k['CPP:TF_az']] )
       T_az_size.append( points[j,k['CPP:T_az']]  ) 
   
+  print TF_az_fug 
+ 
   TF_az_f = unc.ufloat( (numpy.mean( TF_az_fug), numpy.std( TF_az_fug ) ) )
    
   # To obtain the indirect estimate, the Fermi temperature
@@ -947,7 +949,7 @@ if __name__ == "__main__":
 #   T/TF vs NUMBER PLOT
 #--------------------------------------------------
   axTFN.grid(True)
-  #axTFN.set_xlim(None,0.)
+  axTFN.set_xlim(0.,50.)
   TFYlim = min( 0.6 , axTFN.get_ylim()[1])
   axTFN.set_ylim(0,TFYlim)
   axTFN.set_xlabel(r"$\mathrm{Number}\ /10^{5}$", fontsize=fsize/1.0, labelpad=10)
@@ -975,7 +977,7 @@ if __name__ == "__main__":
   datestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
   #print output
   stamp = output + " plotted on " + datestamp
-  fig.text( 0.01, 0.01, stamp)
+  fig.text( 0.01, 0.0, stamp, size=8)
   #fig.savefig( "debug.png" , dpi=140)
   fig.savefig( output , dpi=140)
 

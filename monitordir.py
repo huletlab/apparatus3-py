@@ -9,14 +9,17 @@ def waitforit( path, expr ):
     #print "waiting..."
     #for i in range(20):
     while ( True ) :
-      time.sleep(2)
-      new = glob.glob( path + expr ) 
-      diff = []
-      for f in new: 
-         if not f in current:
-           diff.append(f)
-      if len(diff) > 0:
-         return diff
+      try:
+        time.sleep(2)
+        new = glob.glob( path + expr ) 
+        diff = []
+        for f in new: 
+           if not f in current:
+             diff.append(f)
+        if len(diff) > 0:
+           return diff
+      except KeyboardInterrupt:
+        exit(1)
 
 
 if __name__ == "__main__":
