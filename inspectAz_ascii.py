@@ -22,7 +22,10 @@ if __name__ == "__main__":
   else:
     prefix = ''
 
-  list = glob.glob(  os.getcwd() + '/' + shotnum + '*.AZASCII' ) 
+  if prefix == 'andor2':
+     list = glob.glob(  os.getcwd() + '/' + shotnum + '_andor2' + '*.AZASCII' ) 
+  else:
+     list = glob.glob(  os.getcwd() + '/' + shotnum + '*.AZASCII' ) 
   
   dats =[]
   fits =[]

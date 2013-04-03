@@ -60,9 +60,9 @@ def get_counts( out , args, boxsize):
   results['col'] = col
   results['row'] = row
 
-  results['peak_raw_%d'%box] = out[row,col]
-  results['peak_offset_%d'%box] = offset
-  results['peak_net_%d'%box] = out[row,col] - offset
+  results['peak_raw'] = out[row,col]
+  results['peak_offset'] = offset
+  results['peak_net'] = out[row,col] - offset
 
   results['sum_raw_%d'%box] = braggcounts
   results['sum_offset_%d'%box] = patchcounts
@@ -70,7 +70,7 @@ def get_counts( out , args, boxsize):
   
   if box == args.braggpixels:
     print "  peak:%.1f[%d,%.1f]  sum(%d):%.1f[%d,%.1f]" % \
-    (results['peak_net_%d'%box], results['peak_raw_%d'%box], results['peak_offset_%d'%box],\
+    (results['peak_net'], results['peak_raw'], results['peak_offset'],\
      bragg.shape[0],\
      results['sum_net_%d'%box], results['sum_raw_%d'%box], results['sum_offset_%d'%box]),
     print "  offset=%.3f" % offset
@@ -79,13 +79,6 @@ def get_counts( out , args, boxsize):
   return results
 
 
-def rebin(a, binsz):
-    shape = (a.shape[0]/binsz , a.shape[1]/binsz)
-    sh = shape[0],a.shape[0]//shape[0],shape[1],a.shape[1]//shape[1]
-    #print "Original shape : ", a.shape
-    #print "     New shape : ", shape
-    #print " Process shape : ", sh
-    return a.reshape(sh).sum(-1).sum(1)
 
 def analyze_path( mantapath , args):
   shotnum =  os.path.basename( mantapath ).split('atoms.manta')[0]
@@ -120,7 +113,7 @@ def analyze_path( mantapath , args):
     CY = float(args.c.split(',')[1])   
     args.Ccts = out[CY,CX]
     hs = args.size / 2
-    off = 3 
+    off = 0 
     out = out[ CY-hs-off:CY+hs-off, CX-hs-off:CX+hs-off ]
     args.X0 = CX-hs-off
     args.Y0 = CY-hs-off
@@ -169,11 +162,11 @@ if __name__ == "__main__":
 
   parser.add_argument('--size', \
          action="store", type=int, \
-         help='size in px of crop region.  default = 120')
+         help='size in px of crop region.  default = 24')
 
   parser.add_argument('--braggpixels', \
          action="store", type=int, \
-         help='size in pixels of bragg peak. default = 8')
+         help='size in pixels of bragg peak. default = 4')
 
   parser.add_argument('-c', \
          action="store", type=str, \
@@ -196,11 +189,11 @@ if __name__ == "__main__":
   args = parser.parse_args()
  
   if not args.braggpixels:
-      args.braggpixels = 8  # Big enough
+      args.braggpixels = 6  # Seems to work best
  
   if not args.size:
-      args.size = 120  # Least common multiple of 1,2,3,4,5,6,8
-                       # for easy binning
+      args.size = 24  # 
+                       # 
   if not args.c:
       args.c = '731,474'  # Last pixel where we saw counts
   

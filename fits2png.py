@@ -9,11 +9,22 @@ import falsecolor
 
 
 def makepng( fitsfile, operation, dpi, bg = None, prefix = None):
+  
    shot = fitsfile.split('atoms')[0]
-   atoms     = pyfits.open( shot + 'atoms.fits')[0].data[0]
-   noatoms   = pyfits.open( shot + 'noatoms.fits')[0].data[0]
-   atomsref  = pyfits.open( shot + 'atomsref.fits')[0].data[0]
-   noatomsref= pyfits.open( shot + 'noatomsref.fits')[0].data[0]
+
+   print "Inside makepng:"
+   print fitsfile
+
+   if 'andor2' in fitsfile:
+     atoms     = pyfits.open( shot + 'atoms_andor2.fits')[0].data[0]
+     noatoms   = pyfits.open( shot + 'noatoms_andor2.fits')[0].data[0]
+     atomsref  = pyfits.open( shot + 'atomsref_andor2.fits')[0].data[0]
+     noatomsref= pyfits.open( shot + 'noatomsref_andor2.fits')[0].data[0]
+   else:
+     atoms     = pyfits.open( shot + 'atoms.fits')[0].data[0]
+     noatoms   = pyfits.open( shot + 'noatoms.fits')[0].data[0]
+     atomsref  = pyfits.open( shot + 'atomsref.fits')[0].data[0]
+     noatomsref= pyfits.open( shot + 'noatomsref.fits')[0].data[0]
    
    if operation == 'ABS':
       if bg == None:

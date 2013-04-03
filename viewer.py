@@ -6,8 +6,12 @@
 # Created 03-20-2010
 #
 # Author: Mike Driscoll
+#
+# Modified for Apparatus3 by Pedro M Duarte 03-27-2013
+#
 # ----------------------------------------
 
+import argparse
 import glob
 import os
 import wx
@@ -16,6 +20,7 @@ from wx.lib.pubsub import Publisher
 import sys
 sys.path.append('/lab/software/apparatus3/bin/py')
 import falsecolor, fits2png, manta2png
+import pprint
 
 ########################################################################
 class ViewerPanel(wx.Panel):
@@ -61,6 +66,14 @@ class ViewerPanel(wx.Panel):
         for data in btnData:
             label, sizer, handler = data
             self.btnBuilder(label, sizer, handler)
+
+        #Add text field to directly go to shot
+        self.shot = wx.TextCtrl( self, size=(80,30))
+        #shot.Bind( wx.EVT_TEXT, self.onShotChanged)
+        sizer.Add( self.shot, 0, wx.ALL|wx.CENTER, 5)
+
+        self.btnBuilder("Go", btnSizer, self.onGo) 
+        
             
         self.mainSizer.Add(btnSizer, 0, wx.CENTER)
         self.SetSizer(self.mainSizer)
@@ -75,18 +88,34 @@ class ViewerPanel(wx.Panel):
         sizer.Add(btn, 0, wx.ALL|wx.CENTER, 5)
         
     #----------------------------------------------------------------------
+    def onGo(self,event):
+        shot = self.shot.GetValue()
+        print "Shot = ", shot
+        for i,path in enumerate(self.picPaths):
+          if shot in path:
+              print path, "matches" 
+              self.currentPicture = i 
+              break
+        self.loadImage(self.picPaths[self.currentPicture])
+
+    #----------------------------------------------------------------------
     def loadImage(self, image):
         """"""
         atomsfile = image
+       
+        print atomsfile
+        
         shot = atomsfile.split('atoms')[0]
         type = atomsfile.split('atoms')[1]
 
-        pngpath = shot + '_falsecolor.png'
+        pngpath = shot + '_' + image_type +  '_falsecolor.png'
         if not os.path.exists( pngpath ):
             print 'Creating ' + pngpath + '...'
-            if type == '.fits':
+            if image_type == 'andor':
                 pngpath = fits2png.makepng( atomsfile, 'ABS', 80)
-            if type == '.manta': 
+            elif image_type == 'andor2':
+                pngpath = fits2png.makepng( atomsfile, 'PHC', 80)
+            elif image_type == 'manta': 
                 pngpath = manta2png.makepng( atomsfile, 'PHC', 80)
 
         image_name = os.path.basename(pngpath)
@@ -225,11 +254,19 @@ class ViewerFrame(wx.Frame):
         #    self.folderPath = dlg.GetPath()
         #    print self.folderPath
         #    picPaths = glob.glob(self.folderPath + "/????atoms.fits")
-  
-        print "type = " + image_type
-        picPaths = glob.glob( os.getcwd() + "/????atoms" + image_type)
+ 
+        if image_type == 'andor': 
+           picPaths = glob.glob( os.getcwd() + "/????atoms.fits")
+        elif image_type == 'andor2': 
+           picPaths = glob.glob( os.getcwd() + "/????atoms_andor2.fits")
+        elif image_type == 'manta':
+           picPaths = glob.glob( os.getcwd() + "/????atoms.manta")
+        else:
+           print "Error determining file extension."
+           exit(1) 
+           
         picPaths.sort()
-        print picPaths
+        pprint.pprint( picPaths)
         if picPaths == []:
             print " ---> There are no images of the specified type"
             print " ---> Program will exit" 
@@ -244,24 +281,20 @@ class ViewerFrame(wx.Frame):
         
 #----------------------------------------------------------------------
 if __name__ == "__main__":
-    #parameter indices
-    IMAGETYPE = 1
-    
-    if not (len(sys.argv) == IMAGETYPE + 1):
-        print "viewer.py"
-        print ""     
-        print "Starts the image viewer for images of the specified extension."     
-        print "Extension can be .fits or .manta"     
-        print ""     
-        print "usage: viewer.py .fits"     
-        print "usage: viewer.py .manta"
-        exit(1)
 
-    image_type = sys.argv[IMAGETYPE]
-    print image_type 
-    if image_type != ".fits" and image_type != ".manta":
-        print " ---> The image type used is not valid!"
-        exit(1)
+    parser = argparse.ArgumentParser('viewer.py') 
+   
+    parser.add_argument('pictype', action="store", type=str,\
+           help='type of pictures to show in the viewer:  andor, andor2, manta')
+ 
+    args = parser.parse_args()
+   
+    if args.pictype not in ['andor', 'andor2', 'manta']:
+      print "Picture type not supported : ", args.pictype
+      exit(1)
+
+    image_type = args.pictype 
+
      
  
     app = wx.PySimpleApp()
