@@ -14,11 +14,17 @@ def inverAbel(x,y):
 	#~ print len(numpy.array(y*100))
 	sino = numpy.array(y*100).reshape(100,length).transpose()
 	reconstruction = iradon(sino)
+        #print "len(y) = ", length
+        #print "len(reconstruction) = ", len(reconstruction)
+        #print "shape(reconstruction) = ", reconstruction.shape
 	iry = reconstruction[:,math.ceil(len(reconstruction)*0.5)]/dx
+        #print "index = ", math.ceil(len(reconstruction)*0.5) 
+        #print "len(iry) = ", len(iry)
+        #print "shape(iry) = ", iry.shape
 	cropxs = int((length - len(iry))*0.5)-1
 	cropxe = cropxs + len(iry)
 	irx = x[cropxs:cropxe]
-	#~ print len(irx),len(iry)
+	#print "len(irx), len(iry) =", len(irx),len(iry)
 	return  irx,iry
 
 

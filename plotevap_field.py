@@ -20,10 +20,10 @@ import subprocess
 import os
 import sys
 sys.path.append('/lab/software/apparatus3/bin/py')
-
+sys.path.append('/lab/software/apparatus3/seq/')
+import physics
 import statdat
 import qrange
-
 keys = ['SEQ:shot', 'ODT:odttof', 'EVAP:image', 'EVAP:finalcpow', \
         'ODTCALIB:maxdepth', 'ODTCALIB:v0radial', 'ODTCALIB:v0axial', \
         'CPP:nfit', 'CPP:peakd', 'CPP:ax0w', 'CPP:ax1w', \
@@ -56,7 +56,7 @@ def extract_same_field( evapdat ):
   extracted = {}
   for row in evapdat:
      bi  = row[k['FESHBACH:bias']]
-     field = 6.8*bi
+     field = physics.BfieldGperA*bi
      if bi  in bias:
        l = extracted[bi] 
        l.append ( list(row) )
@@ -138,7 +138,7 @@ def t_fermi( points, ax_N ):
     tf = unc.ufloat( ( 0.0001, 0.0 ) ) ;
 
   #******* NUMBER
-  xT = numpy.array( [points[0,k['FESHBACH:bias']]*6.8 ] )
+  xT = numpy.array( [points[0,k['FESHBACH:bias']]*physics.BfieldGperA ] )
   yT = numpy.array( [num.nominal_value] )
   yTerr = numpy.array( [num.std_dev()] )
   if yTerr[0] < maxerror* yT[0]:
@@ -187,7 +187,7 @@ def tof_temperature( points, tfermi, number, i, ax_tof, ax_T, ax_TF, axTFN, lege
   ax_tof.plot( TfitX, TfitY, '-', color=colors[i], markeredgewidth=0.3, markersize=12, alpha=0.5)
 
   #******* T TOF
-  xT = numpy.array( [points[0,k['FESHBACH:bias']]*6.8 ] )
+  xT = numpy.array( [points[0,k['FESHBACH:bias']]*physics.BfieldGperA ] )
   yT = numpy.array( [T.nominal_value] )
   yTerr = numpy.array( [T.std_dev()] )
   if yTerr[0] < maxerror* yT[0]:
@@ -254,7 +254,7 @@ def t_azimuthal( points , tfermi, number, i, ax_tof, ax_T, ax_TF, axTFN, legend_
   ax_tof.plot( tof, points[:,k['CPP:TF_az']], 'D', markeredgecolor=colors[i], markerfacecolor="None", markeredgewidth=2., markersize=8, alpha=1.0)
   #ax_tof.plot( tof, points[:,k['CPP:T_az']]/tfermi.nominal_value, 'x', color=colors[i], markeredgewidth=2., markersize=8, alpha=1.0)
  
-  evapimage = points[0,k['FESHBACH:bias']]*6.8
+  evapimage = points[0,k['FESHBACH:bias']]*physics.BfieldGperA
 
   #******* T FUGACITY
   xT = numpy.array( [ evapimage ] )
@@ -343,7 +343,7 @@ def t_2d( points, tfermi, number, i , ax_tof, ax_T , ax_TF, axTFN, legend_dict):
   #ax_tof.plot( tof, points[:,k['CPP:T_2d_rd']]/tfermi.nominal_value, '<', markeredgecolor=colors[i], markerfacecolor="None", markeredgewidth=2., markersize=8, alpha=1.0)
   #ax_tof.plot( tof, points[:,k['CPP:T_2d_ax']]/tfermi.nominal_value, '>', markeredgecolor=colors[i], markerfacecolor="None", markeredgewidth=2., markersize=8, alpha=1.0)
 
-  evapimage = points[0,k['FESHBACH:bias']]*6.8
+  evapimage = points[0,k['FESHBACH:bias']]*physics.BfieldGperA
 
   #******* T/TF FUGACITY
   xT = numpy.array( [ evapimage ] )
@@ -406,7 +406,7 @@ def t_2d( points, tfermi, number, i , ax_tof, ax_T , ax_TF, axTFN, legend_dict):
 #   ...
 #--------------------------------------------------
 def eta_plot(points, depth, i, T, T_az_s, ax):
-  evapimage = points[0,k['FESHBACH:bias']]*6.8
+  evapimage = points[0,k['FESHBACH:bias']]*physics.BfieldGperA
 
   #******* ETA AZIMUTHAL FUGACITY
   etaAZ = depth / T_az_s
@@ -530,7 +530,7 @@ if __name__ == "__main__":
   
     shots  = points[:,k['SEQ:shot']] 
     print "shots:", shots
-    evapimage =  numpy.array( [points[0,k['FESHBACH:bias']]*6.8 ] )[0]
+    evapimage =  numpy.array( [points[0,k['FESHBACH:bias']]*physics.BfieldGperA ] )[0]
     tfermi, Num, Den = t_fermi( points , axesN)
     print "EVAP:image   = ", evapimage
     print "bias   = ", bias

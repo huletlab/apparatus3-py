@@ -15,6 +15,7 @@ from email.mime.text import MIMEText
 from configobj import ConfigObj
 import plot_week
 import datetime
+from dewpoint import get_dewpoint_f 
 
 detach_dir = '.' # directory where to save attachments (default: current)
 user = "apparatus3huletlab"#raw_input("Enter your GMail username:")
@@ -126,11 +127,30 @@ def sendInterlockWarning(recipients):
 	If problem resolved send an email with title \"ResetInterlock\" to this email to reset interlock checking from atomcool.<br>\
 	You should receive an email of comfirmation after atomcool revceive the reset email.<br>\
 	")
+
+def sendDewWarning(recipients,dew):
+	print "Sending out Dew point warnning"
+	sendGmail(user,pwd,recipients,"Dewpoint Low  Warning!","Atomcool just found out that the dew point is now  %.1f.<br> \
+	If problem resolved send an email with title \"ResetDewWarning\" to this email to reset dew point  checking from atomcool.<br> \
+	You should receive an email of comfirmation after atomcool revceive the reset email.<br>\
+	If you want to reset dew point warning, send an email with title \"SetDew=?\" where ? is the new warning threshold.<br>\
+	You should receive an email of comfirmation after atomcool revceive the reset email.<br>\
+	"%(dew))
 	
 def sendInterlockReset(recipients):
 	print "Sending out Reset"
 	sendGmail(user,pwd,recipients,"APP3 Intelock Reseted!","The interlock from atomcool has been reseted.<br>\
 	")
+
+def sendDewReset(recipients):
+	print "Sending out Reset"
+	sendGmail(user,pwd,recipients,"APP3 Dew Warning  Reseted!","The dew warning from atomcool has been reseted.<br>\
+	")
+
+def sendDewSet(recipients,dew):
+	print "Sending out Dew set"
+	sendGmail(user,pwd,recipients,"APP3 Dew Warning Threshold Reseted!","The dew warning from atomcool has been reset to %.1f.<br>\
+	"%(dew))
 	
 	
 def checkGmail():
@@ -141,8 +161,10 @@ def checkGmail():
 	#~ config.read(inifile)
 
 	iflag_ini = int(config["Interlock"]["flag"])
+	print "Current iflag is", iflag_ini
 	path_to_store_temp_data = config["TempData"]["path"]
 	recipients = [pair[1] for pair in config["InterlockMailList"].items()]
+	dew_recipients = [pair[1] for pair in config["DewpointMailList"].items()]
 	temp_recipients = [pair[1] for pair in config["TemperatureMailList"].items()]
 	iflag = 1 
 	reset = 0 
@@ -169,23 +191,76 @@ def checkGmail():
 			deletemail(server,id)
 			iflag = 0 # Set interlock flag to zero if recevie a mail from app 3 interlock 
 			os.system('echo \'d *\' | mail -N') # delete the cron message send from root to app3
+			if iflag_ini:
+				reset = 1 
+				config["Interlock"]["flag"] = 0
+				sendInterlockReset(recipients)
 			
 		#~ Rest interlock if receive an mail tile "ResetInterlock"
-		elif(mailsubject == "ResetInterlock"):
+		elif((mailsubject == "ResetInterlock")):
 			print "Reset Interlcok"
 			deletemail(server,id)
 			sendInterlockReset(recipients)
 			reset = 1 
 			config["Interlock"]["flag"] = 0
-			
-	if ((iflag ==1)&(iflag_ini==0)&(reset==0)): 
-		sendInterlockWarning(recipients)
-		config["Interlock"]["flag"] = 1
+
+		#~ Rest dew point warning if receive an mail tile "ResetInterlock"
+		elif(mailsubject == "ResetDewWarning"):
+			print "Reset Dew Warning"
+			deletemail(server,id)
+			sendDewReset(dew_recipients)
+			config["DewpointWarning"]["flag"] = 0
 		
+		elif(mailsubject.startswith('SetDew=')):
+			print "Set Dew Warning"
+			deletemail(server,id)
+			newdew =  float(mailsubject.split("=")[-1])
+			config['DewpointWarning']['warning_threshold'] = newdew
+			sendDewSet(dew_recipients,newdew)
+			sendDewReset(dew_recipients)
+			config["DewpointWarning"]["flag"] = 0
+			
+	#This case means recieve no rest or still running message
+	if ((iflag ==1)&(reset==0)):
+
+		#If this is the first time:
+		if (iflag_ini == 0):
+			sendInterlockWarning(recipients)
+			config["Interlock"]["flag"] = 1
+
+		#If this is the not first time:
+		else: 
+			iflag_rest = 10.0  
+			if iflag_ini > iflag_rest:
+				print "Reset the iflag"
+				config["Interlock"]["flag"] = 0
+			else:
+				config["Interlock"]["flag"] = iflag_ini + 1 
+		
+	#Check Dew point
+	dewpoint = get_dewpoint_f()
+	dewpoint_threshold = float(config['DewpointWarning']['warning_threshold'])
+	print "Dew point now is",dewpoint
+	print "Dew point warning threshold is", dewpoint_threshold
+	dewflag = int(config["DewpointWarning"]["flag"] )
+	print "Dew point warning flag is ", dewflag
+	
+	if ((dewpoint < dewpoint_threshold)&(dewflag == 0)):
+		print "Seding out Dew point warning"
+		sendDewWarning(dew_recipients,dewpoint)
+		config["DewpointWarning"]["flag"] = 1
+	
+	#Reset the flag at midnight
+	time = datetime.datetime.now()
+	print "Current time %d:%d"%(time.hour,time.minute)
+	if ((time.hour==0)&(time.minute==0)):
+		config["DewpointWarning"]["flag"] = 0
+
 	#~ config["Interlock"]["message"] = "I ran from crontab"
 	
 	config.write()
 	
+
 	
 if __name__ == "__main__":
 	checkGmail()

@@ -3,6 +3,7 @@
 import sys
 from numpy import loadtxt
 import falsecolor
+from matplotlib import cm
 
 
 if __name__ == "__main__":
@@ -16,8 +17,12 @@ if __name__ == "__main__":
 
    prefix = sys.argv[5]
 
+   #colormap = falsecolor.my_rainbow
+   colormap = cm.spectral
+   
+
    falsecolor.inspecpng( [data, fit], row, col, data.min(), data.max(), \
-                         falsecolor.my_rainbow, prefix, 100, origin = 'lower' ) 
+                         colormap, prefix, 100, origin = 'lower' ) 
   
    
    

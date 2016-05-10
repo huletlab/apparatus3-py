@@ -6,9 +6,10 @@ import wx
 
 sys.path.append('/lab/software/apparatus3/bin/py')
 import falsecolor
+import matplotlib
 
 
-def makepng( fitsfile, operation, dpi, bg = None, prefix = None):
+def makepng( fitsfile, operation, dpi, bg = None, prefix = None, square=None):
   
    shot = fitsfile.split('atoms')[0]
 
@@ -44,8 +45,15 @@ def makepng( fitsfile, operation, dpi, bg = None, prefix = None):
      label = shot
    else:
      label = shot + prefix 
+
+   if square is not None:
+      s = [ int(i) for i in square.split(',')]
+      out = out[ s[1]-s[2]:s[1]+s[2], s[0]-s[2]:s[0]+s[2] ] 
   
-   return falsecolor.savepng( out, out.min(), out.max(), falsecolor.my_rainbow, label, dpi)
+   #colormap = falsecolor.my_rainbow
+   colormap = matplotlib.cm.spectral
+
+   return falsecolor.savepng( out, out.min(), out.max(), colormap, label, dpi)
 
 if __name__ == "__main__":
    #parameter indeces

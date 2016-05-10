@@ -1,0 +1,83 @@
+#!/usr/bin/python
+
+import argparse
+import sys 
+import pyfits
+import wx
+import numpy
+import glob
+import hashlib
+
+from configobj import ConfigObj
+
+sys.path.append('/lab/software/apparatus3/bin/py')
+import falsecolor
+import gaussfitter
+import qrange
+import statimage
+
+from uncertainties import ufloat
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+
+    def disable(self):
+        self.HEADER = ''
+        self.OKBLUE = ''
+        self.OKGREEN = ''
+        self.WARNING = ''
+        self.FAIL = ''
+        self.ENDC = ''
+
+
+#######################################################
+#
+#  eigenclean_Bragg
+#
+#######################################################
+def eigenclean_Bragg( atoms, noatoms, mask):
+   rows = 3
+   cols = 2
+   
+   fig = plt.figure(figsize=(20.,4*len(imgs)))
+
+
+
+# --------------------- MAIN CODE  --------------------#
+
+
+if __name__ == "__main__":
+  parser = argparse.ArgumentParser('braggEigen.py')
+
+  parser.add_argument('atoms', \
+         action="store", type=str, \
+         help='path of atoms file')
+
+  parser.add_argument('noatoms', \
+         action="store", type=str, \
+         help='path of noatoms file')
+
+  parser.add_argument('mask', \
+         action="store", type=str, \
+         help='X0,Y0,DX,DY')
+
+  args = parser.parse_args()
+
+  atoms     = pyfits.open( args.atoms )[0].data[0]
+  noatoms   = pyfits.open( args.noatoms )[0].data[0]
+ 
+  mask = nupy.zeros_like(atoms)
+  roi=args.mask.split(',') 
+  mask[ roi[0]:roi[0]+roi[2], roi[1]:roi[1]+roi[3] ] = 1  
+  
+
+  eigenclean_Bragg( atoms, noatoms, mask) 
+
+
+
+

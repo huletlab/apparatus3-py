@@ -1,0 +1,8 @@
+*.INI
+*.fits
+*.pyc
+*.dat
+*.png
+expseq*.txt
+*.swp
+*DS_Store*

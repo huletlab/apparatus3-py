@@ -18,6 +18,7 @@ def savepng( data , cmin, cmax , colormap, id, dpi, origin='lower'):
 
    im = ax.imshow(data, cmap=colormap, vmin=cmin,vmax=cmax, origin=origin)
    ax = im.get_axes()
+   cbar = fig.colorbar( im )
 
    pngpath = id + '_falsecolor.png' 
    plt.savefig(pngpath, dpi=dpi)
@@ -102,7 +103,8 @@ def inspecpng( imglist , inspec_row, inspec_col, cmin, cmax, colormap, id, dpi, 
    ysize  = fits*axh_in/figh_in
    axROWRect = [xstart, ystart, xsize, ysize] 
    axROW = fig.add_axes(axROWRect, frameon=True)
-   axROW.set_xlim( 0, len(imglist[0][ inspec_row, :])-1)
+   #axROW.set_xlim( 0, len(imglist[0][ inspec_row, :])-1)
+   axROW.set_xlim( 0, len(imglist[0][ 0, :])-1)
    if step:
      axROW.step( np.arange(0, len(imglist[0][inspec_row,:]), 1),  imglist[0][ inspec_row, :] , color='blue', alpha=alphadata, where='mid')
    else:

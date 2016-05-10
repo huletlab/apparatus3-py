@@ -20,7 +20,8 @@ import subprocess
 import os
 import sys
 sys.path.append('/lab/software/apparatus3/bin/py')
-
+sys.path.append('/lab/software/apparatus3/seq')
+import physics
 import statdat
 import qrange
 
@@ -73,10 +74,10 @@ def extract_same( evapdat , parameter='EVAP:finalcpow'):
        depth = U - 1e-7*image
        value = depth
      elif parameter == 'FESHBACH:bias':
-       field = 6.8 * value
+       field = physics.BfieldGperA * value
        value = field
      elif parameter == 'EVAP:fieldrampfinal':
-       field = 6.8 * value
+       field = physics.BfieldGperA * value
        value = field
 
      if value  in pvalues:
@@ -103,9 +104,9 @@ def pvalue( points, parameter ):
   if parameter == 'EVAP:image':
     xArray = xArray / 1000.
   if parameter == 'FESHBACH:bias':
-    xArray = xArray *6.8
+    xArray = xArray *physics.BfieldGperA
   if parameter == 'EVAP:fieldrampfinal':
-    xArray = xArray *6.8
+    xArray = xArray *physics.BfieldGperA
   xT = numpy.array( [ xArray ] )
   return xT
 #--------------------------------------------------
@@ -522,7 +523,7 @@ if __name__ == "__main__":
   try:
     lowestdepth_fieldfile =  re.sub('L:', '/lab', lowestdepth_report['EVAP']['ramp_field'] )
     fieldramp = numpy.fromfile( lowestdepth_fieldfile , sep=',')
-    fieldramp = fieldramp * 6.8 * 18.06 # Magnetic field in gauss  6.8 G/A, and 18.06 A/Volt
+    fieldramp = fieldramp * physics.BfieldGperA * 18.06 # Magnetic field in gauss  6.8 G/A, and 18.06 A/Volt
   except:
     fieldramp = None
 
@@ -643,9 +644,9 @@ if __name__ == "__main__":
     if parameter == 'EVAP:image':
       xArray = xArray / 1000.
     if parameter == 'FESHBACH:bias':
-      xArray = xArray *6.8
+      xArray = xArray *physics.BfieldGperA
     if parameter == 'EVAP:fieldrampfinal':
-      xArray = xArray *6.8
+      xArray = xArray *physics.BfieldGperA
     xT = numpy.array( [ xArray ] )
  
     number = points[:,k['CPP:nfit']]

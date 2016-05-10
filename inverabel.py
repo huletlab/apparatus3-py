@@ -8,6 +8,22 @@ import matplotlib.pyplot as plt
 import math
 import argparse
 
+def inverAbelDat(x,y):
+        # First one uses the direct integral
+	invx,invy = abel.inverAbel(x,y)
+        invx = np.array(invx)
+        invy = np.array(invy)
+
+        # Second one uses the radon transform
+	x2 = np.append(x[:0:-1],x)
+	y2 = np.append(y[:0:-1],y)
+	invx2,invy2 = abel_scikit.inverAbel(x2,y2)
+        skipn = len(invx2)/2+1
+        invx2 = np.array( invx2[skipn:] )
+        invy2 = np.array( invy2[skipn:] )
+
+        return (invx, invy),(invx2,invy2)
+	
 def inverAbel(path,show=1):
 	try:
 		data = np.loadtxt(path)

@@ -30,9 +30,11 @@ class ViewerPanel(wx.Panel):
     def __init__(self, parent):
         """Constructor"""
         wx.Panel.__init__(self, parent)
+
+        self.parent = parent
         
         #width, height = wx.DisplaySize()
-        width, height = (700,850)
+        width, height = (1000,1200)
         self.picPaths = []
         self.currentPicture = 0
         self.totalPictures = 0
@@ -112,11 +114,11 @@ class ViewerPanel(wx.Panel):
         if not os.path.exists( pngpath ):
             print 'Creating ' + pngpath + '...'
             if image_type == 'andor':
-                pngpath = fits2png.makepng( atomsfile, 'ABS', 80)
+                pngpath = fits2png.makepng( atomsfile, 'ABS', 80, square = square)
             elif image_type == 'andor2':
-                pngpath = fits2png.makepng( atomsfile, 'PHC', 80)
+                pngpath = fits2png.makepng( atomsfile, 'PHC', 80, square = square)
             elif image_type == 'manta': 
-                pngpath = manta2png.makepng( atomsfile, 'PHC', 80)
+                pngpath = manta2png.makepng( atomsfile, 'PHC', 80, square = square)
 
         image_name = os.path.basename(pngpath)
         img = wx.Image(pngpath, wx.BITMAP_TYPE_ANY)
@@ -142,6 +144,7 @@ class ViewerPanel(wx.Panel):
         Loads the next picture in the directory
         """
         if self.currentPicture == self.totalPictures-1:
+            self.parent.onOpenDirectory(0)
             self.currentPicture = 0
         else:
             self.currentPicture += 1
@@ -286,6 +289,10 @@ if __name__ == "__main__":
    
     parser.add_argument('pictype', action="store", type=str,\
            help='type of pictures to show in the viewer:  andor, andor2, manta')
+
+  
+    parser.add_argument('--S', action="store", type=str,\
+           help='square region defined by X0,Y0,halfside') 
  
     args = parser.parse_args()
    
@@ -293,7 +300,13 @@ if __name__ == "__main__":
       print "Picture type not supported : ", args.pictype
       exit(1)
 
-    image_type = args.pictype 
+    square = None
+    if args.S is not None:
+      square = args.S
+      print "Using square region: %s" % args.S
+
+    image_type = args.pictype
+   
 
      
  
