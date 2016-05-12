@@ -36,12 +36,10 @@ def process(diff):
     y = np.sum(diff, axis=0)
     x = np.arange(len(y))
 
-
     a_guess = (y.max() - y.min()) / 2
     mu1_guess, mu2_guess = float(y.argmin()), float(y.argmax())
     sigma_guess = np.abs(mu2_guess - mu1_guess) / 8
     p0 = [a_guess, mu1_guess, mu2_guess, sigma_guess, 0]
-
 
     try:
         p, q = curve_fit(double_gaussian, x, y, p0=p0)
@@ -135,8 +133,7 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=True, save_fi
     report['1DBRAGG_ANALYSIS']['ShiftDistance'] = shift_distance  # store in um
     report['1DBRAGG_ANALYSIS']['Amplitude'] = abs(a)
     report['1DBRAGG_ANALYSIS']['contrast'] = contrast
-    report['1DBRAGG_ANALYSIS']['MomentumTransfer'] = num_scattering*shift_distance
-
+    report['1DBRAGG_ANALYSIS']['MomentumTransfer'] = num_scattering * shift_distance
 
     if verbose:
         if isinstance(shot, np.ndarray):
@@ -154,20 +151,20 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=True, save_fi
         plt.figure(figsize=(5, 10), dpi=80)
         plt.subplot('211')
         if isinstance(shot, np.ndarray):
-            plt.title("#{0}".format(shot_num))
+            plt.title("#{0}".format(shot_num) + r"$\Delta$ = {0}kHz".format(delta_freq * 1000))
         else:
-            plt.title("#{0} - #{1}".format(shot, shot_ref))
+            plt.title("#{0} - #{1}".format(shot, shot_ref) + r"$\Delta$ = {0}kHz".format(delta_freq * 1000))
         plt.imshow(diff)
         plt.colorbar()
         plt.subplot('212')
-        # plt.plot(x, y_positive)
-        # plt.plot(x, y_negative)
         plt.plot(x, y)
         plt.plot(x, y_fit,
                  label="NumScattering = {0:.0f}\nShiftDistance = {1:.2f} um".format(num_scattering, shift_distance))
-        plt.legend(loc='best')
+        plt.ylim(y.min() * 1.3, y.max() * 1.3)
+        plt.legend(loc='best').get_frame().set_alpha(0.5)
+
         plt.savefig('%04d_bragg_1D_analysis.png' % shot_num)
-        plt.close()# release the memory
+        plt.close()  # release the memory
 
 
 def bragg_multi(datadir, shots, **kwargs):
@@ -181,15 +178,12 @@ def bragg_multi(datadir, shots, **kwargs):
             cddata_refs.append(cddatas[i])
     cddata_ref = np.mean(cddata_refs, axis=0)
 
-
     print "Analysis begin:"
     for i, report in enumerate(reports):
         try:
             bragg_1D_anlysis(datadir, cddatas[i], cddata_ref, report=report, **kwargs)
         except Exception as err:
             print err
-
-
 
 
 if __name__ == '__main__':
