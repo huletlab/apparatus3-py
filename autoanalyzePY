@@ -1,0 +1,130 @@
+#!/usr/bin/python
+
+### This script is written to replace the old bash script autoanalyze in bin folder. 2016/06/06 Ernie
+
+from configobj import ConfigObj
+import subprocess as subp
+import argparse
+import time
+import qrange
+import eigenClean
+
+def runCommand(command):
+	process = subp.Popen(command,shell=True,stdout=subp.PIPE,stderr=subp.PIPE)
+	output,error = process.communicate()
+	return output,error
+
+def lastShot():
+	output,error = runCommand("qini -r -f /lab/data/app3/comms/PictNumber PICT:Last")
+	return int(output)
+
+
+def analyze(shot,flags):
+	
+	command = "analyze %04d -f"%(shot)
+	for flag in flags:
+		command = command + " " +flag
+	print "Running ", command
+	output, error = runCommand(command)
+	print output,error
+
+
+def autoAnalyze(flags,Eigen="None",EigenROI="None"):
+	last = lastShot()
+	while True:
+		if Eigen:
+			Eigen.predict([last],EigenROI,plot=True)
+		analyze(last,flags)
+		with open("/lab/data/app3/comms/AnaNumber",'w') as f:
+			f.write("%04d"%last)
+
+		while last == lastShot():
+			time.sleep(2)
+		last=last+1
+
+
+def analyzeRange(flags,rang):
+	shots = qrange.parse_range(rang)
+	for shot in shots:
+		analyze(int(shot),flags)
+
+
+def eigenLearn(N=30):
+	
+	last = lastShot()
+	shotN=0
+	shots=[]
+	print "Start learning eigen background(0/%d):"%N
+	while shotN<N:
+		while last == lastShot():
+			time.sleep(2)
+		shotN=shotN+1
+		last=last+1
+		print "\t #%04d Eigen background learned %d/%d"%(last,shotN,N)
+		shots.append(last)
+
+	return shots
+
+if __name__ == "__main__":
+  	parser = argparse.ArgumentParser(__file__)
+  	parser.add_argument('--range', action = "store", default = "",\
+        	help="Range of shots to be used for analysis.")
+  	parser.add_argument('-f','--fermi', action = "store_true",\
+        	help="Do all fermi fits")
+  	parser.add_argument('-a','--azimuthal', action = "store_true",\
+        	help="Do only zaimuthal fermi fits")
+  	parser.add_argument('-R','--Region', action = "store", default = "",\
+        	help="[ax0pos,ax1pos,ax0size,ax1size] specifies size of ROI used to crop manually")
+  	parser.add_argument('-S','--autocrop', action = "store", default = "",\
+        	help="The crop box size used by autocrop")
+  	parser.add_argument('-u','--oneDcut', action = "store", default = "",\
+        	help=" [nrows,ncols,center0,center1] specifies rows,columns and  centers used by 1D cut fit")
+  	parser.add_argument('-k','--keeproi', action = "store_true",\
+        	help=" Keep the ROI ")
+  	parser.add_argument('-M','--MOTT', action = "store_true",\
+        	help=" Do the MOTT fit")
+  	parser.add_argument('-e','--eigen', action = "store",\
+        	help="[ax0pos,ax1pos,ax0size,ax1size] specifies size of ROI used to mask the eigen clean.")	
+  	parser.add_argument('--eigenN', action = "store",type=int,default=30,\
+        	help="Specifies number of backgrounds to use with eigen clean.")
+	
+	args = parser.parse_args()
+	flags=[]
+	if args.fermi:
+		flags.append("--fermi2d --fermi-azimuth --start-azimuth 0")
+	if args.azimuthal:
+		flags.append("--fermi-azimuth --start-azimuth 0")
+	if args.keeproi:
+		flags.append("--keeproi")
+	if args.MOTT:
+		flags.append("-M")
+	if args.Region:
+		flags.append("-R "+args.Region+" -c")
+	if args.oneDcut:
+		flags.append("-u "+args.Region)
+	if args.autocrop:
+		flags.append("-S "+args.Region)
+
+	if args.range:
+		if args.eigen:
+			shots=qrange.parse_range(args.range)
+			eigenC = eigenClean.EigenClean()
+			try:
+				eigenC.load()
+			except:
+				eigenC.learn(shots)
+			eigenC.predict(shots,[int(i) for i in args.eigen.split(",")],plot=True)
+		analyzeRange(flags,args.range)
+	else:
+		if args.eigen:
+			eigenC = eigenClean.EigenClean()
+			try:
+				eigenC.load()
+			except:	
+				shots = eigenLearn(args.eigenN)
+				eigenC.learn(shots)
+			autoAnalyze(flags,eigenC,[int(i) for i in args.eigen.split(",")])
+		else:
+
+			autoAnalyze(flags)
+
