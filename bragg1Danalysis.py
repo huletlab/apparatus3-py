@@ -177,6 +177,7 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=True, save_fi
         print(to_print)
     report.write()
 
+
     if save_fig:
         plt.figure(figsize=(5, 15), dpi=80)
         plt.subplot('311')
@@ -238,15 +239,18 @@ def bragg_multi(datadir, shots, **kwargs):
         cddata_mean_dict[key] = np.mean(cddata_list, axis=0)
 
     print "Analysis begin:"
+
     for i, report in enumerate(reports):
         try:
-            bragg_1D_anlysis(datadir, cddata, cddata_ref, report=report, **kwargs)
+            bragg_1D_anlysis(datadir, cddatas[i], cddata_ref, report=report, **kwargs)
         except Exception as err:
             print err
+
+    kwargs['save_fig'] = False
     for i, report in enumerate(reports):
         delta = float(report['1DBRAGG']['AO0Freq']) - float(report['1DBRAGG']['AO1Freq'])
         try:
-            bragg_1D_anlysis(datadir, cddata_mean_dict[delta], cddata_ref, report=report, section='1DBRAGG_ANALYSIS',
+            bragg_1D_anlysis(datadir, cddata_mean_dict[delta], cddata_ref, report=report, section='1DBRAGG_ANALYSIS_AVERAGED',
                              **kwargs)
         except Exception as err:
             print err
