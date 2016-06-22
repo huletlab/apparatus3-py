@@ -60,8 +60,6 @@ class EigenEngine:
         self.mask = mask.flatten()
 
         if method == "scale_area":
-            # self.scale_factor = 1.0/(1-np.array([np.sum(vec[mask]**2) for vec in self.V]))
-            # self.scale_factor = 1.0/(1-np.array([linalg.norm(vec[mask]) for vec in self.V]))
             A = self.image_shape[0] * self.image_shape[1]
             self.predict_factor = A / (A - float((x0_end - x0_start) * (x1_end - x1_start)))
         elif method == "least_square":
@@ -119,6 +117,13 @@ class EigenEngine:
         self.V = self.V[:N]
         self.S = self.S[:N]
 
+    @property
+    def explained_variance_ratio(self):
+        assert isinstance(self.S, np.ndarray), "Fit the data first!!"
+        explained_variance = (self.S ** 2) / self.N
+        explained_variance_ratio = explained_variance / np.sum(explained_variance)
+        return explained_variance_ratio
+
 
 class EigenClean:
     def __init__(self):
@@ -149,12 +154,15 @@ class EigenClean:
             except Exception as err:
                 print err
 
-    def learn(self, shots, basis=None, plot=False, n=None):
+    def learn(self, shots, basis='basis', plot=False, n=None):
         imgs = []
         for shot in shots:
             fname = "{0}noatoms.fits.backup".format(shot)
             if not os.path.isfile(fname):
                 fname = "{0}noatoms.fits".format(shot)
+                if not os.path.isfile(fname):
+                    print "Skip shot #{0}".format(shot)
+                    continue
 
             with pyfits.open(fname) as p:
                 img = p[0].data[0]
@@ -163,16 +171,15 @@ class EigenClean:
 
         self.EE.fit(imgs)
 
-        if basis is None:
-            basis = "basis"
-
         if n is not None:
             self.EE.remember_only(n)
 
-        self.EE.save(basis)
+        if basis:
+            self.EE.save(basis)
 
         if plot:
-            plt.plot(self.EE.S)
+            plt.plot(self.EE.explained_variance_ratio)
+            plt.ylabel('explained variance ratio')
             plt.savefig("report_learn.png")
             plt.close()
 
@@ -236,7 +243,7 @@ class EigenClean:
                         plt.colorbar()
 
                         plt.subplot("223")
-                        error = np.sum((od_original_cp-1) ** 2)
+                        error = np.sum((od_original_cp - 1) ** 2)
                         plt.title("Original BG, error = {0:.2f}".format(error))
                         plt.pcolormesh(od_original_cp)
                         plt.colorbar()
@@ -244,7 +251,7 @@ class EigenClean:
                         plt.ylim(0, img_atom.shape[0])
 
                         plt.subplot("224")
-                        error = np.sum((od_new_cp-1)**2)
+                        error = np.sum((od_new_cp - 1) ** 2)
                         plt.title("Optimized BG, error = {0:.2f}".format(error))
                         plt.pcolormesh(x, y, od_new_cp)
 
@@ -275,7 +282,7 @@ if __name__ == '__main__':
     parser.add_argument('--no_plot', action='store_true')
     parser.add_argument('-n', action="store", dest='n', type=int, default=None)
     parser.add_argument('--predict_method', action="store", dest='predict_method', type=str, default="least_square",
-                        help= "Avalialbe method:" + str(EigenEngine.available_predict_method))
+                        help="Avalialbe method:" + str(EigenEngine.available_predict_method))
     args = parser.parse_args()
     shots = qrange.parse_range(args.range)
     shots = [int(shot) for shot in shots]
@@ -298,4 +305,4 @@ if __name__ == '__main__':
     elif args.predict:
         roi = args.roi.split(",")
         roi = [int(i) for i in roi]
-        EC.predict(shots, roi, plot=plot, predict_method=predict_method ,n=n)
+        EC.predict(shots, roi, plot=plot, predict_method=predict_method, n=n)
