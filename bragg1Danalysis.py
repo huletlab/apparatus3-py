@@ -62,7 +62,7 @@ except:
 
 
 def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=True, save_fig=True, rotate=False, roi=None,
-                     section='1DBRAGG_ANALYSIS'):
+                     section='1DBRAGG_ANALYSIS', key=None):
     shot_num = int(float(report['SEQ']['shot']))
 
     if not report:
@@ -90,15 +90,21 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=True, save_fi
     else:
         cddata = np.loadtxt(os.path.join(datadir, '%04d_column.ascii' % shot))
 
-    if isinstance(shot_ref, np.ndarray):
-        cddata_ref = shot_ref
+    if shot_ref is not None:
+        if isinstance(shot_ref, np.ndarray):
+            cddata_ref = shot_ref
+        else:
+            cddata_ref = np.loadtxt(os.path.join(datadir, '%04d_column.ascii' % shot_ref))
     else:
-        cddata_ref = np.loadtxt(os.path.join(datadir, '%04d_column.ascii' % shot_ref))
+        cddata_ref = None
 
-    if rotate == True:
+    if rotate:
         cddata = np.rot90(cddata)
 
-    diff = cddata - cddata_ref
+    if cddata_ref is None:
+        diff = cddata
+    else:
+        diff = cddata - cddata_ref
 
     parameters = process(diff)
 
@@ -144,8 +150,8 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=True, save_fi
         s = 0.0
         for i in range(cddata.shape[0]):
             for j in range(cddata.shape[1]):
-                if i > roi[0] and i < roi[1]:
-                    if j > roi[2] and j < roi[3]:
+                if roi[0] < i < roi[1]:
+                    if roi[2] < j < roi[3]:
                         s += cddata[i, j]
 
     peakSep = (np.argmax(y_fit) - np.argmin(y_fit)) * magnif
@@ -177,12 +183,16 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=True, save_fi
         print(to_print)
     report.write()
 
-
     if save_fig:
         plt.figure(figsize=(5, 15), dpi=80)
         plt.subplot('311')
-        plt.imshow(cddata)
+        if key is not None:
+            plt.title("{0}:{1} = {2}".format(key[0], key[1], report[key[0]][key[1]]))
+        plt.pcolor(cddata)
         plt.plot([com_original[1]], [com_original[0]], 'wo')
+        plt.xlim(0, cddata.shape[1])
+        plt.ylim(0, cddata.shape[0])
+
         if roi is not None:
             currentAxis = plt.gca()
             someX = (roi[2] + roi[3]) / 2.0
@@ -219,9 +229,9 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=True, save_fi
         plt.close()  # release the memory
 
 
-def bragg_multi(datadir, shots, **kwargs):
-    reports = [ConfigObj(datadir + 'report' + "%04d" % shot + '.INI') for shot in shots]
-    cddatas = [np.loadtxt(os.path.join(datadir, '%04d_column.ascii' % shot)) for shot in shots]
+def bragg_multi_inner(datadir, reports, cddatas, **kwargs):
+    # reports = [ConfigObj(datadir + 'report' + "%04d" % shot + '.INI') for shot in shots]
+    # cddatas = [np.loadtxt(os.path.join(datadir, '%04d_column.ascii' % shot)) for shot in shots]
     cddata_refs = []
     print "Searching for ref shots:"
     cddata_dict = {}
@@ -233,10 +243,13 @@ def bragg_multi(datadir, shots, **kwargs):
         if float(report['1DBRAGG']['AO0Freq']) == float(report['1DBRAGG']['AO1Freq']):
             print "#{0}".format(shots[i])
             cddata_refs.append(cddatas[i])
-    cddata_ref = np.mean(cddata_refs, axis=0)
+    if cddata_refs is []:
+        cddata_ref = None
+    else:
+        cddata_ref = np.mean(cddata_refs, axis=0)
     cddata_mean_dict = {}
-    for key, cddata_list in cddata_dict.iteritems():
-        cddata_mean_dict[key] = np.mean(cddata_list, axis=0)
+    for _key, cddata_list in cddata_dict.iteritems():
+        cddata_mean_dict[_key] = np.mean(cddata_list, axis=0)
 
     print "Analysis begin:"
 
@@ -250,10 +263,41 @@ def bragg_multi(datadir, shots, **kwargs):
     for i, report in enumerate(reports):
         delta = float(report['1DBRAGG']['AO0Freq']) - float(report['1DBRAGG']['AO1Freq'])
         try:
-            bragg_1D_anlysis(datadir, cddata_mean_dict[delta], cddata_ref, report=report, section='1DBRAGG_ANALYSIS_AVERAGED',
+            bragg_1D_anlysis(datadir, cddata_mean_dict[delta], cddata_ref, report=report,
+                             section='1DBRAGG_ANALYSIS_AVERAGED',
                              **kwargs)
         except Exception as err:
             print err
+
+
+def exist_shot(datadir, shots):
+    for shot in shots:
+        if os.path.isfile(os.path.join(datadir, '%04d_column.ascii' % shot)):
+            yield shot
+
+
+def bragg_multi(datadir, shots, key=None, **kwargs):
+    shots = [shot for shot in exist_shot(datadir, shots)]
+    reports = [ConfigObj(datadir + 'report' + "%04d" % shot + '.INI') for shot in shots]
+    cddatas = [np.loadtxt(os.path.join(datadir, '%04d_column.ascii' % shot)) for shot in shots]
+
+    if key is None:
+        bragg_multi_inner(datadir, reports, cddatas, **kwargs)
+    else:
+        report_group_dict = dict()
+        cddata_group_dict = dict()
+        for i, report in enumerate(reports):
+            group_key = report[key[0]][key[1]]
+            if group_key not in report_group_dict:
+                report_group_dict[group_key] = []
+                cddata_group_dict[group_key] = []
+            report_group_dict[group_key].append(report)
+            cddata_group_dict[group_key].append(cddatas[i])
+
+        for group_key in report_group_dict.keys():
+            print '==============================================='
+            print "Group: {0}:{1} = {2}".format(key[0], key[1], group_key)
+            bragg_multi_inner(datadir, report_group_dict[group_key], cddata_group_dict[group_key], key=key, **kwargs)
 
 
 if __name__ == '__main__':
@@ -263,11 +307,17 @@ if __name__ == '__main__':
     parser.add_argument('--ref', type=int)
     parser.add_argument('--no_save_fig', action='store_false')
     parser.add_argument('--ROI', action="store", dest='roi', help="")
+    parser.add_argument('--key', action='store', dest='key', help="section:key", default=None)
 
     args = parser.parse_args()
     shot = args.shot
     shot_ref = args.ref
     save_fig = args.no_save_fig
+
+    key = args.key
+    if key is not None:
+        key = key.split(':')
+
     datadir = "./"
     roi = args.roi
     if roi is not None:
@@ -277,7 +327,7 @@ if __name__ == '__main__':
     if args.range:
         shots = qrange.parse_range(args.range)
         shots = [int(shot) for shot in shots]
-        bragg_multi(datadir, shots, save_fig=save_fig, verbose=True, roi=roi)
+        bragg_multi(datadir, shots, save_fig=save_fig, verbose=True, roi=roi, key=key)
 
     else:
         bragg_1D_anlysis(datadir, shot, shot_ref, save_fig=save_fig, verbose=True, roi=roi)
