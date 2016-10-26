@@ -2,7 +2,7 @@
 #Take an azimuth average data perform inverse abel transformation to get density 
 
 import abel_scikit 
-import abel
+import abel_local as abel
 import numpy as np
 import matplotlib.pyplot as plt
 import math

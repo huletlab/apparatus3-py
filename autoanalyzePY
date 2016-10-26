@@ -29,11 +29,15 @@ def analyze(shot,flags):
 	print output,error
 
 
-def autoAnalyze(flags,Eigen="None",EigenROI="None"):
+def autoAnalyze(flags,Eigen=False,EigenROI="None",EigenBgs=5):
 	last = lastShot()
 	while True:
 		if Eigen:
-			Eigen.predict([last],EigenROI,plot=True)
+			# Use the closet N shots for basis
+			shots = [last-i for i in range(EigenBgs)]
+			print "Using %d shots for basis:"%EigenBgs,shots
+			eigenC.learn(shots,plot=False,basis=False)
+			Eigen.predict([last],EigenROI,plot=True, predict_method="scale_area")
 		analyze(last,flags)
 		with open("/lab/data/app3/comms/AnaNumber",'w') as f:
 			f.write("%04d"%last)
@@ -85,7 +89,7 @@ if __name__ == "__main__":
         	help=" Do the MOTT fit")
   	parser.add_argument('-e','--eigen', action = "store",\
         	help="[ax0pos,ax1pos,ax0size,ax1size] specifies size of ROI used to mask the eigen clean.")	
-  	parser.add_argument('--eigenN', action = "store",type=int,default=30,\
+  	parser.add_argument('--eigenN', action = "store",type=int,default=5,\
         	help="Specifies number of backgrounds to use with eigen clean.")
 	
 	args = parser.parse_args()
@@ -110,20 +114,23 @@ if __name__ == "__main__":
 			shots=qrange.parse_range(args.range)
 			eigenC = eigenClean.EigenClean()
 			try:
+				print "Try to load basis file"
 				eigenC.load()
 			except:
-				eigenC.learn(shots)
-			eigenC.predict(shots,[int(i) for i in args.eigen.split(",")],plot=True)
+				print "Load fail. Start to learn basis"
+
+				eigenC.learn(shots,plot=True)
+			eigenC.predict(shots,[int(i) for i in args.eigen.split(",")],plot=True, predict_method = "scale_area")
 		analyzeRange(flags,args.range)
 	else:
 		if args.eigen:
 			eigenC = eigenClean.EigenClean()
-			try:
-				eigenC.load()
-			except:	
-				shots = eigenLearn(args.eigenN)
-				eigenC.learn(shots)
-			autoAnalyze(flags,eigenC,[int(i) for i in args.eigen.split(",")])
+			#try:
+			#	eigenC.load()
+			#except:	
+			#	shots = eigenLearn(args.eigenN)
+			#	eigenC.learn(shots,plot=True)
+			autoAnalyze(flags,eigenC,[int(i) for i in args.eigen.split(",")],args.eigenN)
 		else:
 
 			autoAnalyze(flags)

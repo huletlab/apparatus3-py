@@ -136,8 +136,8 @@ class EigenClean:
     def backup(shots):
         for shot in shots:
             try:
-                src = "{0}noatoms.fits".format(shot)
-                dst = "{0}noatoms.fits.backup".format(shot)
+                src = "{0:04d}noatoms.fits".format(int(shot))
+                dst = "{0:04d}noatoms.fits.backup".format(int(shot))
                 if os.path.isfile(dst):
                     continue
                 shutil.copy(src, dst)
@@ -148,8 +148,8 @@ class EigenClean:
     def recover(shots):
         for shot in shots:
             try:
-                src = "{0}noatoms.fits.backup".format(shot)
-                dst = "{0}noatoms.fits".format(shot)
+                src = "{0:04d}noatoms.fits.backup".format(int(shot))
+                dst = "{0:04d}noatoms.fits".format(int(shot))
                 shutil.copy(src, dst)
             except Exception as err:
                 print err
@@ -157,11 +157,11 @@ class EigenClean:
     def learn(self, shots, basis='basis', plot=False, n=None):
         imgs = []
         for shot in shots:
-            fname = "{0}noatoms.fits.backup".format(shot)
+            fname = "{0:04d}noatoms.fits.backup".format(int(int(shot)))
             if not os.path.isfile(fname):
-                fname = "{0}noatoms.fits".format(shot)
+                fname = "{0:04d}noatoms.fits".format(int(shot))
                 if not os.path.isfile(fname):
-                    print "Skip shot #{0}".format(shot)
+                    print "Skip shot #{0:04d}".format(int(shot))
                     continue
 
             with pyfits.open(fname) as p:
@@ -198,10 +198,10 @@ class EigenClean:
         print "Prediction Method: {0}".format(predict_method)
         for shot in shots:
             if verbose:
-                print "Predicting #{0}".format(shot)
-            atom = "{0}atoms.fits".format(shot)
-            noatom = "{0}noatoms.fits".format(shot)
-            bak = "{0}noatoms.fits.backup".format(shot)
+                print "Predicting #{0:04d}".format(int(shot))
+            atom = "{0:04d}atoms.fits".format(int(shot))
+            noatom = "{0:04d}noatoms.fits".format(int(shot))
+            bak = "{0:04d}noatoms.fits.backup".format(int(shot))
             with pyfits.open(atom) as p_atom:
                 with pyfits.open(noatom) as p_noatom:
                     img_atom = p_atom[0].data[0]
@@ -259,7 +259,7 @@ class EigenClean:
                         plt.ylim(0, img_atom.shape[0])
                         plt.colorbar()
 
-                        plt.savefig("{0}_prediction.png".format(shot))
+                        plt.savefig("{0:04d}_prediction.png".format(int(shot)))
                         plt.close()
 
 

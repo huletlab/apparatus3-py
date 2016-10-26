@@ -16,7 +16,6 @@ from scipy.constants import *
 from scipy.optimize import curve_fit
 from configobj import ConfigObj
 from scipy import ndimage
-
 import qrange
 
 magnif = 1.497  # um per pixel
@@ -137,7 +136,11 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=True, save_fi
         pass
 
     num_scattering = np.sum(y_positive)
-
+    #y_filter = np.copy(y)-np.mean(y)
+    y_filter = ndimage.filters.gaussian_filter(y,1.0)
+    y_filter = y_filter-np.mean(y_filter)
+    #y_filter[abs(y_filter)<100]=0		
+    com_diff = np.sum(np.multiply(x,y_filter))
     com_p = np.average(x, weights=y_positive)
     com_n = np.average(x, weights=y_negative)
     com_original = ndimage.measurements.center_of_mass(cddata)
@@ -163,6 +166,7 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=True, save_fi
     report[section]['contrast'] = contrast
     report[section]['MomentumTransfer'] = num_scattering * shift_distance
     report[section]['OriginalCOMx'] = com_original[1]
+    report[section]['DiffCOMx'] = com_diff
     report[section]['OriginalCOMx_positive'] = com_original_positive
     report[section]['OriginalCOMy'] = com_original[0]
     # report[section]['1dmax'] = np.max(y_original)
@@ -206,13 +210,18 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=True, save_fi
             plt.title("#{0}".format(shot_num) + r"$\Delta$ = {0}kHz".format(delta_freq * 1000))
         else:
             plt.title("#{0} - #{1}".format(shot, shot_ref) + r"$\Delta$ = {0}kHz".format(delta_freq * 1000))
-        plt.imshow(diff)
+        #plt.imshow(diff)
+        plt.pcolor(diff)
+        plt.plot([com_original[1]], [com_original[0]], 'wo')
+        plt.xlim(0, diff.shape[1])
+        plt.ylim(0, diff.shape[0])
 
         plt.colorbar()
 
         plt.subplot('313')
         plt.plot(x, y, label="Diff")
         plt.plot(x_original, y_original, label="Original")
+        plt.plot(x_original, y_filter, label="Filtered")
         plt.plot(x, y_fit,
                  label="NumScattering = {0:.0f}\nShiftDistance = {1:.2f} um\npeakSep={2:.2f}um".format(num_scattering,
                                                                                                        shift_distance,

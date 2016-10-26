@@ -1,9 +1,17 @@
+#!/usr/bin/python
 import matplotlib
 
-matplotlib.use("Agg")
+try:
+    matplotlib.use("Agg")
+except:
+    pass
 
 import matplotlib.pyplot as plt
 
+try:
+    plt.style.use('ggplot')
+except:
+    pass
 import qrange
 
 import numpy as np
@@ -12,38 +20,117 @@ import abel
 import argparse
 
 from scipy.constants import *
+from scipy.fftpack import fft2, ifft2, fftfreq
+
+from scipy.misc import imresize
+
+import os
+
+factor = (532 * nano / (1.497 * micro)) ** 2
+factor_density = (532 * nano) ** 3 / (1.497 * micro) ** 3
 
 
-def process(shots, **kwargs):
+
+def butter(img, k0, n, d=1.0):
+    """
+    Butterworth filter
+    """
+    kimg = fft2(img)
+
+    n0, n1 = img.shape
+
+    kk0, kk1 = np.meshgrid(fftfreq(n1, d=d), fftfreq(n0, d=d))
+
+    k = np.sqrt(kk0 ** 2 + kk1 ** 2)
+
+    B = 1.0 / (1 + (k / k0) ** (2 * n))
+
+    kimg = kimg * B
+
+    return ifft2(kimg).real
+
+def process(shots, fname, n_iter=None, save_txt=False, resize_fac=1.0,**kwargs):
     imgs = []
     transformed = []
     shots = [int(shot) for shot in shots]
     for shot in shots:
-        img = np.loadtxt("{0}_column.ascii".format(shot))
+        img = np.loadtxt("{0:04d}_column.ascii".format(int(shot)))
         img = np.rot90(img)
+        #
 
         img = abel.center_image(img, center="gaussian")
+        img = butter(img, 0.5, 10)
+        img = img[15:-15, 7:-7]
+
+#        print img
+        #img = imresize(img, resize_fac, interp="cubic")
         imgs.append(img)
-        tr = abel.Transform(img, method="hansenlaw", symmetry_axis=(None), symmetrize_method="fourier").transform
+
+    imgs = np.array(imgs)
+
+    if n_iter is None:
+        n_iter = len(shots)
+    N = len(shots)
+
+    for i in range(n_iter):
+        img_av = imgs[np.random.randint(0, N, N)].mean(axis=0)
+        tr = abel.Transform(img_av, method="three_point", symmetry_axis=(0), symmetrize_method="fourier").transform
+        #tr = butter(tr, 0.2, 10)
         transformed.append(tr)
 
-    imgs.np.array(img)
+    tr_av = np.mean(transformed, axis=0) * factor_density
+    tr_std = np.std(transformed, axis=0) * factor_density
+    img_av = np.mean(imgs, axis=0)
+    img_std = np.std(imgs, axis=0)
+    y1D_av = np.mean(transformed, axis=0).sum(axis=0) * factor
+    y1D_std = np.sum(transformed, axis=1).std(axis=0) * factor
 
-    x = np.array(range(img.shape[1])) * 1.5
-    y = np.array(range(img.shape[0])) * 1.5
-    plt.figure(figsize=(5, 10))
-    plt.subplot("211")
-    plt.pcolor(x, y, np.mean(imgs, axis=0))
-    plt.xlim(30, 120)
-    plt.ylim(30, 120)
-    plt.subplot("212")
-    plt.errorbar(x, np.mean(transformed, axis=0).sum(axis=0) * (0.01 / (1.5 * micro)) ** 2 * (532 * nano / 0.01) ** 2,
-                 yerr=np.sum(transformed, axis=1).std(axis=0) * (0.01 / (1.5 * micro)) ** 2 * (532 * nano / 0.01) ** 2)
-    plt.xlim(30, 120)
+    x = np.array(range(img.shape[1])) * 1.497 / resize_fac
+    y = np.array(range(img.shape[0])) * 1.497 / resize_fac
+
+    plt.figure(figsize=(5, 15))
+    plt.subplot("311")
+    plt.pcolor(x, y, img_av)
+    plt.xlim(0, x.max())
+    plt.ylim(0, y.max())
+    plt.xlabel("um")
+    plt.ylabel("um")
+    cbar = plt.colorbar()
+    cbar.ax.set_ylabel(r"number per pixel")
+    plt.title("column density")
+
+    plt.subplot("312")
+    plt.pcolor(x, y, tr_av)
+    plt.xlim(0, x.max())
+    plt.ylim(0, y.max())
+    plt.xlabel("um")
+    plt.ylabel("um")
+    cbar2 = plt.colorbar()
+    cbar2.ax.set_ylabel(r"number per lattice site")
+    plt.title("inverse Abel transform")
+
+    plt.subplot("313")
+    plt.errorbar(x, y1D_av, y1D_std)
+    plt.xlim(0, x.max())
     plt.ylabel("atoms per tube")
     plt.xlabel("um")
-    plt.savefig("{0}-{1}_1D_sample.png".format(shots[0], shots[-1]))
+
+    if not os.path.isdir("plots"):
+        os.mkdir("plots")
+
+    fname = os.path.join("plots", fname)
+    print "create", fname
+
+    plt.savefig(fname)
     plt.close()
+
+    if save_txt:
+        np.savetxt(fname[:-4] + ".column_density_mean.txt", img_av)
+        np.savetxt(fname[:-4] + ".column_density_std.txt", img_std)
+        np.savetxt(fname[:-4] + ".inverse_abel_mean.txt", tr_av)
+        np.savetxt(fname[:-4] + ".inverse_abel_std.txt", tr_std)
+        np.savetxt(fname[:-4] + ".1d_profile_mean.txt", y1D_av)
+        np.savetxt(fname[:-4] + ".1d_profile_std.txt", y1D_std)
 
 
 if __name__ == '__main__':
@@ -51,5 +138,6 @@ if __name__ == '__main__':
     parser.add_argument('--range', action="store", dest='range', help="analyze files in the specified range.")
     args = parser.parse_args()
     datadir = "./"
+    fname = "{0}_1D_sample.png".format(args.range)
     shots = qrange.parse_range(args.range)
-    process(shots)
+    process(shots, fname=fname, save_txt=True)
