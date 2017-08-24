@@ -39,6 +39,15 @@ def autoAnalyze(flags,Eigen=False,EigenROI="None",EigenBgs=5):
 			eigenC.learn(shots,plot=False,basis=False)
 			Eigen.predict([last],EigenROI,plot=True, predict_method="scale_area")
 		analyze(last,flags)
+
+		report = ConfigObj("./report%04d.INI"%last)
+		#print report
+		print "From report %04d:"%last
+		for i in report["SEQ"]["analysis_print"]:
+			s,v = i.split(":")
+			if s in report and v in report[s]:
+				print "\t%s = %s"%(i,report[s][v])
+		
 		with open("/lab/data/app3/comms/AnaNumber",'w') as f:
 			f.write("%04d"%last)
 

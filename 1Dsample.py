@@ -49,7 +49,7 @@ def butter(img, k0, n, d=1.0):
 
     return ifft2(kimg).real
 
-def process(shots, fname, n_iter=None, save_txt=False, resize_fac=1.0,**kwargs):
+def process(shots, fname, n_iter=None, save_txt=False, folder='plots', resize_fac=1.0,**kwargs):
     imgs = []
     transformed = []
     shots = [int(shot) for shot in shots]
@@ -67,6 +67,8 @@ def process(shots, fname, n_iter=None, save_txt=False, resize_fac=1.0,**kwargs):
         imgs.append(img)
 
     imgs = np.array(imgs)
+    img_ave = imgs.mean(axis=0)
+    y1D_original = np.sum(img_ave, axis=1)
 
     if n_iter is None:
         n_iter = len(shots)
@@ -99,6 +101,12 @@ def process(shots, fname, n_iter=None, save_txt=False, resize_fac=1.0,**kwargs):
     cbar.ax.set_ylabel(r"number per pixel")
     plt.title("column density")
 
+#    plt.subplot("412")
+#    plt.plot(y1D_original)
+#    #plt.xlim(0, x.max())
+#    plt.ylabel("atoms per pixel")
+#    plt.xlabel("um")
+
     plt.subplot("312")
     plt.pcolor(x, y, tr_av)
     plt.xlim(0, x.max())
@@ -115,10 +123,10 @@ def process(shots, fname, n_iter=None, save_txt=False, resize_fac=1.0,**kwargs):
     plt.ylabel("atoms per tube")
     plt.xlabel("um")
 
-    if not os.path.isdir("plots"):
-        os.mkdir("plots")
+    if not os.path.isdir(folder):
+        os.mkdir(folder)
 
-    fname = os.path.join("plots", fname)
+    fname = os.path.join(folder, fname)
     print "create", fname
 
     plt.savefig(fname)
@@ -131,13 +139,16 @@ def process(shots, fname, n_iter=None, save_txt=False, resize_fac=1.0,**kwargs):
         np.savetxt(fname[:-4] + ".inverse_abel_std.txt", tr_std)
         np.savetxt(fname[:-4] + ".1d_profile_mean.txt", y1D_av)
         np.savetxt(fname[:-4] + ".1d_profile_std.txt", y1D_std)
+        np.savetxt(fname[:-4] + ".shots.txt", shots)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--range', action="store", dest='range', help="analyze files in the specified range.")
+    parser.add_argument('--fname', action="store", dest='fname', help="Filename",default= "")
+    parser.add_argument('--folder', action="store", dest='folder', help="Folder",default= "plots")
     args = parser.parse_args()
     datadir = "./"
-    fname = "{0}_1D_sample.png".format(args.range)
+    fname = "{0}_1D_sample.png".format(args.fname or args.range)
     shots = qrange.parse_range(args.range)
-    process(shots, fname=fname, save_txt=True)
+    process(shots, fname=fname,folder = args.folder,save_txt=True)

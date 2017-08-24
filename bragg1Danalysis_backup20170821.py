@@ -20,9 +20,6 @@ import qrange
 import matplotlib.gridspec as gridspec
 import os
 import math
-import random
-from multiprocessing.dummy import Pool as ThreadPool 
-
 magnif = 1.497  # um per pixel
 lattice_d = 0.532
 
@@ -367,7 +364,7 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=False, save_f
 #    return contrast
     return num_scattering, contrast 
 
-def bragg_multi_inner(datadir, reports, cddatas,nbgs=4,no_bragg_ref=0,number_filter=1.0,bootstrap_N=0,useOnlyNshots=-1,**kwargs):
+def bragg_multi_inner(datadir, reports, cddatas,nbgs=4,no_bragg_ref=0,number_filter=1.0,**kwargs):
     # reports = [ConfigObj(datadir + 'report' + "%04d" % shot + '.INI') for shot in shots]
     # cddatas = [np.loadtxt(os.path.join(datadir, '%04d_column.ascii' % shot)) for shot in shots]
     cddata_refs = {}
@@ -395,10 +392,7 @@ def bragg_multi_inner(datadir, reports, cddatas,nbgs=4,no_bragg_ref=0,number_fil
 	if (not no_bragg_ref and float(report['DIMPLELATTICE']['braggkill'])==1.0) or float(report['DIMPLELATTICE']['braggkill'])==1.0:
         	if not delta in cddata_dict:
 			cddata_dict[delta] = []
-		if useOnlyNshots<0 or len(cddata_dict[delta]) < useOnlyNshots:
-        		cddata_dict[delta].append(cddatas[i])
-		else:
-			print "Skipping shot #%d since it will be  more than %d shots in the set."%(float(report["SEQ"]["shot"]),useOnlyNshots)
+        	cddata_dict[delta].append(cddatas[i])
         if float(report['1DBRAGG']['AO0Freq']) == float(report['1DBRAGG']['AO1Freq']):
 		if  no_bragg_ref and float(report['DIMPLELATTICE']['braggkill'])!=0:
 			continue
@@ -452,7 +446,6 @@ def bragg_multi_inner(datadir, reports, cddatas,nbgs=4,no_bragg_ref=0,number_fil
 
     kwargs['save_fig'] = kwargs['save_ave'] or kwargs['save_fig']
     cddata_mean_dict = {}
-    cddata_mean_dict_bootstrap = {}
     cddata_mean_1D_dict = {}
     cddata_mean_1D_max = []
     cddata_mean_1D_min = []
@@ -464,7 +457,6 @@ def bragg_multi_inner(datadir, reports, cddatas,nbgs=4,no_bragg_ref=0,number_fil
     a_ref_y, c_ref_y,sigma_ref_y = parameters_ref[1]
     com_mean_ref = ndimage.measurements.center_of_mass(cddata_mean_ref)
     cddata_mean_ref_1D = np.sum(cddata_mean_ref, axis=0)	
-    number_of_shots = {}
     for key, cddata_list in cddata_dict.iteritems():
 #	if key ==0:
 #		lenOfRefs  = len(cddata_list)
@@ -474,13 +466,6 @@ def bragg_multi_inner(datadir, reports, cddatas,nbgs=4,no_bragg_ref=0,number_fil
 #	else:
 #        	cddata_mean_dict[key] = np.mean(cddata_list, axis=0)
         cddata_mean_dict[key] = np.mean(cddata_list, axis=0)
-	## This part is for bootstrap
-	cddata_length = len(cddata_list)
-	cddata_mean_dict_bootstrap[key] = []
-	for i in range(bootstrap_N):
-		bootstrap_cddata_list = [cddata_list[random.randint(0, cddata_length -1)] for i in range(cddata_length)] 
-		cddata_mean_dict_bootstrap[key].append(np.mean(bootstrap_cddata_list,axis=0))
-	number_of_shots[key] = len(cddata_list)
         cddata_mean_1D_dict[key] =  np.sum(cddata_mean_dict[key], axis=0)-cddata_mean_ref_1D
         cddata_mean_1D_max.append([key,np.argmax(cddata_mean_1D_dict[key])])
         cddata_mean_1D_max_value.append([key,np.max(cddata_mean_1D_dict[key])])
@@ -499,9 +484,7 @@ def bragg_multi_inner(datadir, reports, cddatas,nbgs=4,no_bragg_ref=0,number_fil
 
     deltas = []
     excitation=[]
-    excitation_bootstrap = []
     contrast=[]
-    contrast_bootstrap = []
     tof = 0.0 
     for i, report in enumerate(reports):
 	delta = float(report['1DBRAGG']['AO0Freq']) - float(report['1DBRAGG']['AO1Freq'])
@@ -518,51 +501,10 @@ def bragg_multi_inner(datadir, reports, cddatas,nbgs=4,no_bragg_ref=0,number_fil
                         #     **kwargs)
 			excitation.append(ex[0])
 			contrast.append(ex[1])
-
 		except Exception as err:
 			print err,"!!!!!!!!!!!"
 			excitation.append(0)
 			contrast.append(0)
-	#	excitation_boot = []
-	#	contrast_boot = []
-		def thread_bragg_1D(cddata_bootstrap):
-
-			try:
-	            		return bragg_1D_anlysis(datadir, cddata_bootstrap, cddata_ref_dic_delta[delta] , report=report,
-        	                     section='1DBRAGG_ANALYSIS_AVERAGED_BOOTSTRAP',fig_suffix="_average",
-                             	     **kwargs)
-
-			except:
-				return None 
- 	 	
-		pool = ThreadPool(4) 
-		results = pool.map(thread_bragg_1D, cddata_mean_dict_bootstrap[delta])
-		excitation_boot = [ r[0] for r in result if r]
-		contrast_boot = [ r[1] for r in result if r]
-
-
-	#	for cddata_bootstrap in cddata_mean_dict_bootstrap[delta]:
-	#		
-
-	#		try:
-	#            		exB=bragg_1D_anlysis(datadir, cddata_bootstrap, cddata_ref_dic_delta[delta] , report=report,
-        #	                     section='1DBRAGG_ANALYSIS_AVERAGED_BOOTSTRAP',fig_suffix="_average",
-        #                     	     **kwargs)
-	#			excitation_boot.append(exB[0])
-	#			contrast_boot.append(exB[1])
-	#		except:
-	#			print "One of the bootstrap fail the fit" 
-    		if bootstrap_N >0:
-			excitation_bootstrap.append([np.mean(excitation_boot),np.std(excitation_boot)])
-			contrast_bootstrap.append([np.mean(contrast_boot),np.std(contrast_boot)])	
-		else:
-			try:
-				excitation_bootstrap.append([ex[0],0])
-				contrast_bootstrap.append([ex[1],0])	
-			except:
-				print "Fit Fail"
-    excitation_bootstrap = np.array(excitation_bootstrap)
-    contrast_bootstrap = np.array(contrast_bootstrap)
     gs = gridspec.GridSpec(3,3)
     gs.update(wspace=0.55,hspace=0.4)
     fig = plt.figure(figsize=(12, 12))
@@ -620,8 +562,8 @@ def bragg_multi_inner(datadir, reports, cddatas,nbgs=4,no_bragg_ref=0,number_fil
     ax5 = fig.add_subplot(gs[0,1])
 #    ax5.axvline(c_ref_x,color="k",label="Fitted Gaussian Center")
 #    print len(deltas)
+#    print len(excitation)
     ax5.plot(np.array(deltas)*1e3,excitation,".r",label="Excitation")
-    ax5.errorbar(np.array(deltas)*1e3,excitation_bootstrap[:,0],excitation_bootstrap[:,1],c='blue',ls='',label="Excitation_bootstrap")
     #ax5.plot(cddata_mean_1D_max_value[:,0]*1e3,(cddata_mean_1D_max_value[:,1]-cddata_mean_1D_min_value[:,1])*0.5,".r",label="Excitation")
 #    ax5.plot(,".r",label="Excitation")
     #ax5.plot(cddata_mean_1D_min_value[:,0]*1e3,abs(cddata_mean_1D_min_value[:,1]),".b",label="Absorption")
@@ -634,16 +576,9 @@ def bragg_multi_inner(datadir, reports, cddatas,nbgs=4,no_bragg_ref=0,number_fil
 #    ax5.set_title("Emission  Summed")
     ax6 = fig.add_subplot(gs[1,1])
     ax6.plot(np.array(deltas)*1e3,contrast,".r",label="Contrast")
-    ax6.errorbar(np.array(deltas)*1e3,contrast_bootstrap[:,0],contrast_bootstrap[:,1],c='blue',ls='',label="Excitation_bootstrap")
     ax6.set_xlabel("Bragg Frequency (kHz)")
     ax6.set_ylabel("Contrast")
     ax6.set_title("Contrast")
-    ax7 = fig.add_subplot(gs[1,2])
-    delt,ss = zip(*number_of_shots.iteritems())
-    ax7.plot(np.array(delt)*1e3,ss,".r",label="Shots used")
-    ax7.set_xlabel("Bragg Frequency (kHz)")
-    ax7.set_ylabel("Shots used")
-    ax7.set_title("Shots Used")
 #    ax6.axvline(c_ref_x,color="k",label="Fitted Gaussian Center")
 #    ax6.plot(cddata_mean_ref_1D,".k",label="Reference Shot")
 #    ax6.set_xlabel("Piexel")
@@ -661,19 +596,13 @@ def bragg_multi_inner(datadir, reports, cddatas,nbgs=4,no_bragg_ref=0,number_fil
 	ax.set_xticks(xt)
     	ax.set_xticklabels(lt)
     key = kwargs["key"]
-    if useOnlyNshots>0:
-	extraKey = "_UseOnlyNshots_%d"%useOnlyNshots
-    else:
-	extraKey = ''
-    if not os.path.exists("./1D_analysis/{0}_{1}_{2}".format(key[0], key[1], reports[0][key[0]][key[1]],extraKey)):
-		print "Creating 1D_analysis folder ./1D_analysis/{0}_{1}_{2}".format(key[0], key[1], reports[0][key[0]][key[1]],extraKey)
-		os.makedirs("./1D_analysis/{0}_{1}_{2}".format(key[0], key[1], reports[0][key[0]][key[1]],extraKey))
+    if not os.path.exists("./1D_analysis/{0}_{1}_{2}".format(key[0], key[1], reports[0][key[0]][key[1]])):
+		print "Creating 1D_analysis folder ./1D_analysis/{0}_{1}_{2}".format(key[0], key[1], reports[0][key[0]][key[1]])
+		os.makedirs("./1D_analysis/{0}_{1}_{2}".format(key[0], key[1], reports[0][key[0]][key[1]]))
     
-    fig.savefig('./1D_analysis/{0}_{1}_{2}{3}_summary.png'.format(key[0], key[1], reports[0][key[0]][key[1]],extraKey))
-    np.savetxt('./1D_analysis/{0}_{1}_{2}{3}_excitation.txt'.format(key[0], key[1], reports[0][key[0]][key[1]],extraKey),(np.array(deltas)*1e3,np.array(excitation)))
-    np.savetxt('./1D_analysis/{0}_{1}_{2}{3}_contrast.txt'.format(key[0], key[1], reports[0][key[0]][key[1]],extraKey),(np.array(deltas)*1e3,np.array(contrast)))
-    np.savetxt('./1D_analysis/{0}_{1}_{2}{3}_excitation_bootstrap.txt'.format(key[0], key[1], reports[0][key[0]][key[1]],extraKey),(np.array(deltas)*1e3,excitation_bootstrap[:,0],excitation_bootstrap[:,1]))
-    np.savetxt('./1D_analysis/{0}_{1}_{2}{3}_contrast_bootstrap.txt'.format(key[0], key[1], reports[0][key[0]][key[1]],extraKey),(np.array(deltas)*1e3,contrast_bootstrap[:,0],contrast_bootstrap[:,1]))
+    fig.savefig('./1D_analysis/{0}_{1}_{2}_summary.png'.format(key[0], key[1], reports[0][key[0]][key[1]]))
+    np.savetxt('./1D_analysis/{0}_{1}_{2}_excitation.txt'.format(key[0], key[1], reports[0][key[0]][key[1]]),(np.array(deltas)*1e3,np.array(excitation)))
+    np.savetxt('./1D_analysis/{0}_{1}_{2}_contrast.txt'.format(key[0], key[1], reports[0][key[0]][key[1]]),(np.array(deltas)*1e3,np.array(contrast)))
 
 def exist_shot(datadir, shots):
     for shot in shots:
@@ -716,21 +645,20 @@ def bragg_multi(datadir, shots, key=None,no_bragg_ref=0, **kwargs):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="Anaylze 1D Bragg Data")
+    parser = argparse.ArgumentParser()
     parser.add_argument('--range', action="store", dest='range', help="analyze files in the specified range.")
-    parser.add_argument('--shot', type=int,help='shot to analyze(obsolete)')
-    parser.add_argument('--ref', type=int,help='ref shot number(obsolete)')
+    parser.add_argument('--shot', type=int)
+    parser.add_argument('--ref', type=int)
     parser.add_argument('--nbgs', type=int,help="number of backgrounds to use when calculating diff column density",default=4)
-    parser.add_argument('--no_save_fig', action='store_false',help='Dont save individual pic for each shot')
+    parser.add_argument('--no_save_fig', action='store_false')
     parser.add_argument('--no_bragg_ref', action='store_true',help="Whether if the refs having braggkill on")
     parser.add_argument('--save_ave', action='store_true',help="save fig for average shots")
-    parser.add_argument('--smartROI', action='store_true',help='Smart ROI')
+    parser.add_argument('--smartROI', action='store_true')
     parser.add_argument('--ROI', action="store", dest='roi', help="")
     parser.add_argument('--rows', action="store", dest='rows', help="")
     parser.add_argument('--number_filter', action="store", dest='nfilter', help="Ignore shots with number more than x%",default='30.0')
-    parser.add_argument('--bootstrapN', action="store", dest='bootstrap_N', help="Number of boostrap sample size",default='0')
-    parser.add_argument('--useOnlyNshots', action="store", dest='useOnlyNshots', help="Use only N shots for data",default='-1')
     parser.add_argument('--key', action='store', dest='key', help="section:key", default=None)
+
     args = parser.parse_args()
     shot = args.shot
     shot_ref = args.ref
@@ -757,8 +685,7 @@ if __name__ == '__main__':
     if args.range:
         shots = qrange.parse_range(args.range)
         shots = [int(shot) for shot in shots]
-        bragg_multi(datadir, shots, save_fig=save_fig, save_ave=save_ave,verbose=False, roi=roi,smartroi=smartroi, key=key,rows=rows,nbgs=args.nbgs,no_bragg_ref=args.no_bragg_ref,number_filter=float(args.nfilter)*0.01,bootstrap_N=int(args.bootstrap_N),\
-	useOnlyNshots=int(args.useOnlyNshots))
+        bragg_multi(datadir, shots, save_fig=save_fig, save_ave=save_ave,verbose=False, roi=roi,smartroi=smartroi, key=key,rows=rows,nbgs=args.nbgs,no_bragg_ref=args.no_bragg_ref,number_filter=float(args.nfilter)*0.01)
 
     else:
         bragg_1D_anlysis(datadir, shot, shot_ref, save_fig=save_fig, verbose=False, roi=roi,smartroi=smartroi)
