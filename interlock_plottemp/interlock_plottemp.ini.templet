@@ -1,3 +1,6 @@
+[Account]
+account = apparatus3huletlab
+password = bla
 [DewpointWarning]
 warning_threshold = 34.0
 flag = 0
@@ -7,7 +10,10 @@ flag = 0
 #The name of the key doesnt matter. 
 #The script will run through the section for emails.
 ernie = erniejazz1984@gmail.com
-melissa = mel.revelle@gmail.com
+#melissa = mel.revelle@gmail.com
+anna = anna.l.marchant@rice.edu
+yating = cherting1022@gmail.com
+zzh = zz48@rice.edu
 jason = jn15@rice.edu
 #ben = Ben.Olsen@rice.edu
 henry = henrydluo@gmail.com
@@ -19,7 +25,7 @@ jake = jacafry@gmail.com
 #xinxing = xl22@rice.edu
 
 [Interlock]
-flag = 0
+flag = 1
 #flag = 1 means interlock is tripped and something goes wrong
 
 [TempData]
@@ -31,6 +37,7 @@ path = /lab/data/weekly_temperatures
 app3 = apparatus3huletlab@gmail.com
 ernie = erniejazz1984@gmail.com
 yating = cherting1022@gmail.com
+zzh = zz48@rice.edu
 #pedro = duarte.gelvez.pedromiguel@gmail.com
 #russ = russell.hart@rice.edu
 #xinxing = xl22@rice.edu
@@ -44,7 +51,7 @@ app3 = apparatus3huletlab@gmail.com
 ernie = erniejazz1984@gmail.com
 #pedro = duarte.gelvez.pedromiguel@gmail.com
 #russ = russell.hart@rice.edu
-melissa = mel.revelle@gmail.com
+#melissa = mel.revelle@gmail.com
 #paul = Paul.Dyke@rice.edu
 #david = david.w.tam@rice.edu
 #ben = Ben.Olsen@rice.edu
@@ -52,6 +59,7 @@ jason = jn15@rice.edu
 randy = randy@rice.edu
 henry = henrydluo@gmail.com
 
+zzh = zz48@rice.edu
 #xinxing = xl22@rice.edu
 jake = jacafry@gmail.com
 #seth = colemans@rice.edu

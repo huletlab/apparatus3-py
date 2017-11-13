@@ -277,13 +277,15 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=False, save_f
     report.write()
 
     if save_fig:
-        gs = gridspec.GridSpec(3,2)
+        gs = gridspec.GridSpec(2,2)
 	gs.update(wspace=0.55,hspace=0.4)
-	fig = plt.figure(figsize=(8, 12))
+	fig = plt.figure(figsize=(8, 8))
 	ax = fig.add_subplot(gs[0, 0])
+        ax.set_title("W/ Bragg Pulse")
 #        if key is not None:
 #            ax.set_title("{0}:{1} = {2}".format(key[0], key[1], report[key[0]][key[1]]))
         ax.pcolor(cddata)
+	np.savetxt('./1D_analysis/bragg.dat',cddata)
 #        ax.plot([com_original[1]], [com_original[0]], 'wo')
         ax.set_xlim(0, cddata.shape[1])
         ax.set_ylim(0, cddata.shape[0])
@@ -296,20 +298,22 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=False, save_f
         ax_ref.set_xlim(0, cddata_ref.shape[1])
         ax_ref.set_ylim(0, cddata_ref.shape[0])
         ax_ref.set_title("Reference")
+	np.savetxt('./1D_analysis/reference.dat',cddata_ref)
 #	if rows:
 # 		ax_cut.add_patch(patches.Rectangle((0,rows[0]),cddata_cut.shape[1], rows[1]-rows[0],
 #                                                    facecolor="grey",lw=2,ec='k', fill=False))
 
 	ax2 = fig.add_subplot(gs[1, 0])
-        if isinstance(shot, np.ndarray):
-            ax2.set_title("#{0}".format(shot_num) + r"$\Delta$ = {0}kHz".format(delta_freq * 1000))
-        else:
-            ax2.set_title("#{0} - #{1}".format(shot, shot_ref) + r"$\Delta$ = {0}kHz".format(delta_freq * 1000))
+        #if isinstance(shot, np.ndarray):
+        #    ax2.set_title("#{0}".format(shot_num) + r"$\Delta$ = {0}kHz".format(delta_freq * 1000))
+        #else:
+        #    ax2.set_title("#{0} - #{1}".format(shot, shot_ref) + r"$\Delta$ = {0}kHz".format(delta_freq * 1000))
         #plt.imshow(diff)
         ax2.pcolor(diff_original)
-        ax2.plot([com_original[1]], [com_original[0]], 'wo')
+        #ax2.plot([com_original[1]], [com_original[0]], 'wo')
         ax2.set_xlim(0, diff_original.shape[1])
         ax2.set_ylim(0, diff_original.shape[0])
+	np.savetxt('./1D_analysis/diff.dat',diff_original)
 #        if roi is not None:
 # 		ax2.add_patch(patches.Rectangle((roi[0],roi[1]), roi[2] - roi[0], roi[3] - roi[1],
 #                                                    facecolor="grey", fill=False))
@@ -317,29 +321,34 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=False, save_f
 #	if rows:
 # 		ax2.add_patch(patches.Rectangle((0,rows[0]),diff_original.shape[1], rows[1]-rows[0],
 #                                                    facecolor="black",lw=2,ec='k', fill=False))
-	ax2_cut = fig.add_subplot(gs[1, 1])
-        ax2_cut.pcolor(cddata_diff_cut)
-        ax2_cut.set_xlim(0, cddata_diff_cut.shape[1])
-        ax2_cut.set_ylim(0, cddata_diff_cut.shape[0])
-        ax2_cut.set_title("Cutted Region")
+	#ax2_cut = fig.add_subplot(gs[2, 0])
+        #ax2_cut.pcolor(cddata_diff_cut)
+        #ax2_cut.set_xlim(0, cddata_diff_cut.shape[1])
+        #ax2_cut.set_ylim(0, cddata_diff_cut.shape[0])
+        #ax2_cut.set_title("Cutted Region")
 
         #ax2.colorbar()
 
-	ax3 = fig.add_subplot(gs[2, 0])
+	ax3 = fig.add_subplot(gs[1, 1])
 
         ax3.plot(x, y, label="Difference")
-	ax3.plot(x_fit, y_fit,label ='FitY\n'+ str(["%.2f"%i for i in [a, mu1, mu2, sigma, c]]))#+str(parameters))
-        ax3.plot(x_original, y_original, label="Data")
+	#ax3.plot(x_fit, y_fit,label ='FitY\n'+ str(["%.2f"%i for i in [a, mu1, mu2, sigma, c]]))#+str(parameters))
+        ax3.plot(x_original, y_original, label="W/ Bragg Pulse")
         ax3.plot(x_original_ref, y_original_ref, label="Reference")
-        ax3.axvline(c_ref_x, label="Reference Fitted Center",color="k")
-	lengthOfX=len(x)
-	nt=2
-	dx=lengthOfX*1.0/(nt*2+1)
-	xt=[c_ref_x+dx*(i-nt) for i in range(2*nt+1)] 
-	lt = ["%.1f"%(abs(magnif*(x-c_ref_x))/tof*0.1) for x in xt]
-	for a in [ax3]:
-		a.set_xticks(xt)
-    		a.set_xticklabels(lt)
+	np.savetxt('./1D_analysis/diff_sum.dat',np.column_stack((x,y)))
+	np.savetxt('./1D_analysis/data_sum.dat',np.column_stack((x_original,y_original)))
+	np.savetxt('./1D_analysis/ref_sum.dat',np.column_stack((x_original_ref,y_original_ref)))
+	print len(x),len(y_fit)
+	np.savetxt('./1D_analysis/fit_sum.dat',np.column_stack((x_fit,y_fit)))
+        #ax3.axhline(0,color="k")
+	#lengthOfX=len(x)
+	#nt=2
+	#dx=lengthOfX*1.0/(nt*2+1)
+	#xt=[c_ref_x+dx*(i-nt) for i in range(2*nt+1)] 
+	#lt = ["%.1f"%(abs(magnif*(x-c_ref_x))/tof*0.1) for x in xt]
+	#for a in [ax3]:
+#		a.set_xticks(xt)
+#    		a.set_xticklabels(lt)
 #       ax3.plot(x_original, y_filter, label="Filtered")
 #	ax3.plot(x, y_fit,
 #                label="NumScattering = {0:.0f}\nShiftDistance = {1:.2f} um\npeakSep={2:.2f}um".format(num_scattering,
@@ -351,13 +360,15 @@ def bragg_1D_anlysis(datadir, shot, shot_ref, report=None, verbose=False, save_f
         y_original_positive = np.copy(y_original)
         y_original_positive[y_original_positive < 0] = 0
 #        ax3.axvline(np.average(x_original, weights=y_original_positive), color='g', label="COM_1D_pos")
-	ax3.set_xlabel("Velocity(cm/s)")
+#	ax3.set_xlabel("Velocity(cm/s)")
 	ax3.set_ylabel("Atom Number")
         ax3.set_ylim(min(y_fit.min() * 1.3,-1000.0), y_original.max() * 1.3)
-	ax3.legend(loc=2,bbox_to_anchor=(1.1, 1.05))
-	ax4 = ax3.twiny()
-	ax4.set_xlabel("Pixel")
-	ax4.set_xlim(ax3.get_xlim())
+        ax3.set_xlim(min(x),max(x))
+	#ax3.legend(loc=2,bbox_to_anchor=(1.1, 1.05))
+	#ax3.set_xlabel("Pixel")
+#	ax4 = ax3.twiny()
+#	ax4.set_xlabel("Pixel")
+#	ax4.set_xlim(ax3.get_xlim())
 	if not os.path.exists("./1D_analysis/{0}_{1}_{2}".format(key[0], key[1], report[key[0]][key[1]])):
 		print "Creating 1D_analysis folder ./1D_analysis/{0}_{1}_{2}".format(key[0], key[1], report[key[0]][key[1]])
 		os.makedirs("./1D_analysis/{0}_{1}_{2}".format(key[0], key[1], report[key[0]][key[1]]))

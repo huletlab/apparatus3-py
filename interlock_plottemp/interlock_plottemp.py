@@ -18,8 +18,6 @@ import datetime
 from dewpoint import get_dewpoint_f 
 
 detach_dir = '.' # directory where to save attachments (default: current)
-user = "apparatus3huletlab"#raw_input("Enter your GMail username:")
-pwd = "cesium137"#getpass.getpass("Enter your password: ")
 
 def getGmail(usr, pwd):
 	# connecting to the gmail imap server
@@ -120,6 +118,10 @@ def plotTemp(mail,file):
 			
 	plot_week.plotreport(file,showplot = 0)
 	
+inifile = os.path.join(os.path.dirname(__file__),'interlock_plottemp.ini')
+config = ConfigObj(inifile)
+user = config['Account']['account']
+pwd = config['Account']['password']
 	
 def sendInterlockWarning(recipients):
 	print "Sending out warnning"

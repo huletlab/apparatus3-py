@@ -6,3 +6,5 @@
 expseq*.txt
 *.swp
 *DS_Store*
+diskspace/diskspace.ini
+interlock_plottemp/interlock_plottemp.ini
